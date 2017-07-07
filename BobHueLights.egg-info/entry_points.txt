@@ -1,0 +1,3 @@
+[console_scripts]
+bobhuelightd = BobHueLights.bobhuelightd:main
+

@@ -1,9 +1,10 @@
-Displaydata ESL preconfiguration project
-========================================
+BobLightd Server for control of Philips Hue Lights
+==================================================
 
-This project is designed to provide the Logistics team with an application
-to enable them to pre-configure Communicators and ESL displays before shipping
-them to a customer
+This project is designed to provide an optimised boblightd Server
+for controlling Philips Hue lights only.
+It's intention is to be used in conjuction with the MrMC application
+available for the AppleTV4 when using the LightEffects add-on
 
 ----
 

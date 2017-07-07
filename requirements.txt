@@ -1,6 +1,4 @@
 jsmin>=2.2.1
-openpyxl>=2.4.6
 requests>=2.13.0
-grequests>=0.3.0
 setuptools>=32.2.0
 validators>=0.11.3
