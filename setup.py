@@ -83,6 +83,7 @@ setup(
     entry_points={
         'console_scripts': [
             'bobhuelightd=BobHueLights.bobhuelightd:main',
+            'lighteffects=BobHueLights.lighteffects:main',
         ],
     },
     zip_safe=True,

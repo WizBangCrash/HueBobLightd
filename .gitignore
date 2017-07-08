@@ -1,0 +1,25 @@
+#Python
+_pycache_/
+*.py[cod]
+*$py.class
+
+# PyInstaller
+/build/
+/dist/
+
+# Python egg metadata, regenerated from source files by setuptools.
+/*.egg-info
+/*.egg
+/.eggs/
+
+# macOS
+.DS_Store
+
+# Other
+*.log
+*.log.*
+# Project
+# Keep the Temp top level, but ignore anything below it
+!temp
+temp/**
+.cache/
