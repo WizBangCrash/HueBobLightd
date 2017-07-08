@@ -81,6 +81,10 @@ def main():
     response = s.recv(1000).decode()
     logger.info('response from server: %r', response)
 
+    message = b'set light right rgb 1.000000 0.500000 0.500000\n'
+    logger.info('sending data: %r', message)
+    len_sent = s.send(message)
+
     # Clean up
     logger.info('closing socket')
     s.close()

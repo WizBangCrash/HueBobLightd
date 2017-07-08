@@ -110,13 +110,17 @@ class BobHueRequestHandler(socketserver.StreamRequestHandler):
                 """
                 Commands to control what to do with the lights 
                 """
-                lightcmd = message_parts[2]
+                lightname = message_parts[2]
+                lightcmd = message_parts[3]
                 if lightcmd == 'rgb':
                     """
                     Change the color of a light to the given rgb value.
-                    Values are floats: R, G, B
+                    Values are floats: R, G, B  e.g.
+                    set light right rgb 0.000000 0.000000 0.000000
                     """
-                    pass
+                    if len(message_parts) == 7:
+                        rgb = tuple(message_parts[4:])
+                        self.lights.set_light_color(lightname, rgb)
                 elif lightcmd == 'speed':
                     """
                     Change the transition speed of one light.
@@ -148,7 +152,8 @@ class BobHueRequestHandler(socketserver.StreamRequestHandler):
             Ignored if not allowsync or not synchronized device.
             Should be sent after each bulk set.
             """
-            pass
+            self.logger.debug('Colours: {!r}'.format(self.lights.all_colors))
+            # pass
 
         # Join all the responses into a single string seperated by
         # carriage returs and terminated in a carriage return
