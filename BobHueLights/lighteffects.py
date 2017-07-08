@@ -79,7 +79,7 @@ def main():
     # Receive a response
     logger.info('waiting for response')
     response = s.recv(1000).decode()
-    logger.info('response from server: %s', response)
+    logger.info('response from server: %r', response)
 
     # Clean up
     logger.info('closing socket')

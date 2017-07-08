@@ -30,17 +30,23 @@ class BobHueRequestHandler(socketserver.StreamRequestHandler):
     def handle(self):
         self.logger.debug('handle')
         try:
+            # Keep reading requests until the client closes the socket
             while True:
                 request = self.rfile.readline()
                 if not request:
                     break
-                request = request.strip()
-                self.logger.debug('RX [%s]: %s', self.client_address[0], request)
+                # Decode the request into a string and strip unwanted whitespace
+                request = request.decode().strip()
+                self.logger.debug('RX [%s]: %s', self.client_address[0],
+                                  request)
+                # Process the request
+                response = self.process_request(request)
 
-                response = self.process_request(request.decode()).encode()
-
-                self.logger.debug('TX [%s]: %s', self.client_address[0], response)
-                self.wfile.write(response)
+                if response:
+                    # Send the response
+                    self.logger.debug('TX [%s]: %s', self.client_address[0],
+                                      response)
+                    self.wfile.write(response.encode())
         except Exception as e:
             self.logger.debug('ER [%s]: %r', self.client_address[0], e)
             raise
@@ -49,34 +55,107 @@ class BobHueRequestHandler(socketserver.StreamRequestHandler):
     def process_request(self, request):
         """ Process the incoming request """
         response = list()
-        data = request
 
         # First we check the message format
-        message_parts = data.split()
-        if message_parts is None:
-            self.logger.debug('Null message recieved')
-            return None
-
+        message_parts = request.split()
         cmd = message_parts[0]
         if cmd == 'hello':
-            self.logger.debug('Got: hello')
-            response.append('hello\n')
+            """
+            This is the connection command.
+            Hello command should return 'hello' from the server
+            """
+            response.append('hello')
         elif cmd == 'ping':
-            self.logger.debug('Got: ping')
-            response.append('ping 1\n')
+            """
+            This command checks if this client is currently using
+            any of the lights.
+            Return the number of lights in use by this client
+            """
+            response.append('ping 1')
         elif cmd == 'get':
+            """
+            This command is used to get information about the server protocol
+            and it's configured lights
+            """
             subcmd = message_parts[1]
-            self.logger.debug('Got: %s:%s', cmd, subcmd)
             if subcmd == 'version':
-                response.append('version 5\n')
+                """
+                Returns the protocol version used by the server,
+                current version is 5.
+                """
+                response.append('version 5')
             elif subcmd == 'lights':
-                self.logger.debug('Sending: lights 1')
-                response.append('lights {}\n'.format(self.lights.count))
-                self.logger.debug('Sending: light 001 scan 0.0, 100.0, 0.0, 100.0')
-                response.append('light 001 scan {}\n'.format(self.lights.scanarea(1)))
+                """
+                Returns the lights declared in server configuration.
+                First line is the number of lights, then each line
+                corresponds to one light and its scanning parameters.
+                """
+                response.append('lights {:d}'.format(self.lights.count))
+                for name, scaninfo in self.lights.all_lights.items():
+                    lightdata = 'light {0} scan {1} {2} {3} {4}'.format(name, *scaninfo)
+                    response.append(lightdata)
+        elif cmd == 'set':
+            """
+            This command is used to change lights and client parameters.
+            None of them return any information
+            """
+            subcmd = message_parts[1]
+            if subcmd == 'priority':
+                """
+                Change the client priority, from 0 to 255, default is 128.
+                The highest priority is the lowest number
+                """
+                pass
+            if subcmd == 'light': # rbg
+                """
+                Commands to control what to do with the lights 
+                """
+                lightcmd = message_parts[2]
+                if lightcmd == 'rgb':
+                    """
+                    Change the color of a light to the given rgb value.
+                    Values are floats: R, G, B
+                    """
+                    pass
+                elif lightcmd == 'speed':
+                    """
+                    Change the transition speed of one light.
+                    Value is between 0.0 and 100.0.
+                    100 means immediate changes.
+                    """
+                    pass
+                elif lightcmd == 'interpolation':
+                    """
+                    Enable or disable color interpolation between 2 steps.
+                    Value is a boolean ("0"/"1" or "true"/"false")
+                    """
+                    pass
+                elif lightcmd == 'use':
+                    """
+                    Declare whether a light is used.
+                    By default all lights are used.
+                    Any color change request for an unused light 
+                    will be ignored.
+                    """
+                    pass
+                elif lightcmd == 'singlechange':
+                    pass
+        elif cmd == 'sync':
+            """
+            Send synchronised signal to wake the devices and tell
+            them request is ready to be read. 
+            'allowsync' must be enabled in configuration file.
+            Ignored if not allowsync or not synchronized device.
+            Should be sent after each bulk set.
+            """
+            pass
 
-        return ''.join(response)
-        # TODO: use this statement to put in the '\n'
+        # Join all the responses into a single string seperated by
+        # carriage returs and terminated in a carriage return
+        if response:
+            return '\n'.join(response) + '\n'
+        else:
+            return None
 
     def finish(self):
         self.logger.debug('finish')

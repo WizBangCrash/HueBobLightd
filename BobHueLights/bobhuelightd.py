@@ -70,12 +70,12 @@ def main():
     # response = s.recv(len_sent)
     # logger.debug('response from server: %r', response)
 
-    # # Clean up
-    # server.shutdown()
+    # Clean up
+    server.shutdown()
     # logger.debug('closing socket')
     # s.close()
-    # logger.debug('done')
-    # server.socket.close()
+    logger.debug('done')
+    server.socket.close()
 
     logger.info('Exiting...')
 
