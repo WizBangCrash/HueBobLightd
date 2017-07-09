@@ -10,8 +10,7 @@ __copyright__ = "Copyright 2017, David Dix"
 import logging
 import argparse
 import socket
-import socketserver
-import threading
+from threading import Thread
 from BobHueLights.logger import init_logger
 from BobHueLights.server import BobHueServer
 from BobHueLights.server import BobHueRequestHandler
@@ -32,40 +31,42 @@ CONFIG = {
     'username' : '-q7WH-udlI5-c0CGs71eUNrd-l9YxdGU6TmIOcEX',
     'lights' : {
         # Hue lightid : (Vtop, Vbot, Hleft, Hright)
-        '1' : (50.0, 100.0, 80.0, 100.0),
-        '2' : (50.0, 100.0, 0.0, 20.0),
+        '1' : (50.0, 100.0, 70.0, 100.0),
+        '2' : (50.0, 100.0, 0.0, 30.0),
         '7' : (0.0, 20.0, 0.0, 100.0)        
     }
 }
 
 
-
 def main():
-    """x
+    """
     The server needs to process the command arguments, open the logger
     and then start the daemon on the appropiate socket
     """
     parser = argparse.ArgumentParser()
+    parser.add_argument('--debug', default=False,
+                        action='store_true',
+                        help='turn on debug logging information')
     parser.add_argument('--version', action='version',
                         version=__version__)
     args = parser.parse_args()
 
     # Initialise the logger
-    init_logger('bobhuelightd.log')
+    init_logger('bobhuelightd.log', args.debug)
     logger = logging.getLogger('bobhuelightd')
 
     # Initialise the lights
     bridge = CONFIG['bridge']
     user = CONFIG['username']
     lights = CONFIG['lights']
-    HueLights(lights)
+    HueLights().setup(lights)
 
     # Create a HueUpdate thread
     hue_updater = HueUpdate(bridge, user)
     if not hue_updater.connect():
         logger.critical('Could not connect to Hue Bridge')
         exit(-1)
-    hue_thread = threading.Thread(target=hue_updater.update)
+    hue_thread = Thread(target=hue_updater.update)
     hue_thread.setDaemon(True)  # don't hang on exit
     hue_thread.start()
 
@@ -76,12 +77,13 @@ def main():
     ip, port = server.server_address  # what port was assigned?
 
     # Start the server in a thread
-    server_thread = threading.Thread(target=server.serve_forever)
+    server_thread = Thread(target=server.serve_forever)
     server_thread.setDaemon(True)  # don't hang on exit
     server_thread.start()
     server_thread.join()
 
     # Clean up
+    hue_updater.shutdown()
     server.shutdown()
     logger.debug('done')
     server.socket.close()

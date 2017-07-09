@@ -9,6 +9,7 @@ __copyright__ = "Copyright 2017, David Dix"
 
 import logging
 import argparse
+import time
 import socket
 from BobHueLights.logger import init_logger
 from pkg_resources import get_distribution, DistributionNotFound
@@ -25,12 +26,15 @@ def main():
     The client sends messages that the AppleTV4 would send
     """
     parser = argparse.ArgumentParser()
+    parser.add_argument('--debug', default=False,
+                        action='store_true',
+                        help='turn on debug logging information')
     parser.add_argument('--version', action='version',
                         version=__version__)
     args = parser.parse_args()
 
     # Initialise the logger
-    init_logger('lighteffects.log')
+    init_logger('lighteffects.log', args.debug)
     logger = logging.getLogger('LightEffects')
 
     address = (socket.gethostname(), 19333)
@@ -90,6 +94,10 @@ def main():
     len_sent = s.send(message)
 
     message = b'set light 7 rgb 0.000000 0.000000 1.000000\n'
+    logger.info('sending data: %r', message)
+    len_sent = s.send(message)
+
+    message = b'sync\n'
     logger.info('sending data: %r', message)
     len_sent = s.send(message)
 

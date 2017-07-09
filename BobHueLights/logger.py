@@ -12,7 +12,7 @@ import logging
 import logging.handlers
 
 
-def init_logger(filename):
+def init_logger(filename, debug):
     """
     Initialise the logger
     Send INFO messages to console
@@ -21,10 +21,11 @@ def init_logger(filename):
     """
     # TODO: Get logdir, logfile & loglevel from the config file
     logfile = '{}/{}'.format(os.getcwd(), filename)
+    loglevel = logging.DEBUG if debug else logging.INFO
     backups = 2
     need_roll = os.path.isfile(logfile)
     logger = logging.getLogger()
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(loglevel)
     file_fmt = logging.Formatter('%(asctime)s.%(msecs)d [%(levelname)s] '
                                  '%(name)s %(funcName)s: %(message)s',
                                  datefmt='%Y%m%d %H:%M:%S')
@@ -33,12 +34,12 @@ def init_logger(filename):
     # Set console up for INFO only
     consoleh = logging.StreamHandler()
     # TODO: consoleh.setLevel(logging.INFO)
-    consoleh.setLevel(logging.DEBUG)
+    consoleh.setLevel(logging.INFO)
     consoleh.setFormatter(console_fmt)
 
     # Create a rotating handler for the files
     fileh = logging.handlers.RotatingFileHandler(logfile, backupCount=backups)
-    fileh.setLevel(logging.DEBUG)
+    fileh.setLevel(loglevel)
     fileh.setFormatter(file_fmt)
 
     logger.addHandler(fileh)

@@ -13,7 +13,6 @@ import logging
 import copy
 import time
 from colorsys import rgb_to_hsv
-from colorsys import rgb_to_hls
 import requests
 from BobHueLights.huelights import HueLights
 
@@ -32,40 +31,63 @@ class HueUpdate():
             username: Authorised user of the Hue bridge
             lights: List of Hue bridge light id's to update
         """
-        if self.logger is None:
-            self.logger = logging.getLogger('HueUpdate')
+        if HueUpdate.logger is None:
+            HueUpdate.logger = logging.getLogger('HueUpdate')
         self.url = 'http://{}/api/{}'.format(bridge, username)
         self.lights = HueLights()
-        self.logger.debug('Initialised with %d lights', self.lights.count)
+        HueUpdate.logger.debug('Initialised with %d lights', self.lights.count)
     
     def connect(self):
         """ Connect to the Hue bridge """
         # TODO: Validate the bridge address
-        url = '{}/config'.format(self.url)
-        response = requests.get(url=url)
-        if response.ok:
-            self.logger.debug('Bridge Config:\n%s', response.json())
-            result = True
-        else:
-            self.logger.debug('Bridge Error:\n%s', response.text)
-            result = False
-        return result
+        # TODO: Move the request calls into own class
+        response = requests.get(url='{}/config'.format(self.url))
+        state = {
+            'on' : True,
+            'xy' : [0.4, 0.4],
+            'bri' : 50,
+            'alert' : 'select'
+        }
+        for light in self.lights.all_lights:
+            url = '{}/lights/{}/state'.format(self.url, light)
+            try:
+                response = requests.put(url=url, json=state)
+                HueUpdate.logger.debug('Change:\n%s', response.json())
+            except requests.exceptions.Timeout:
+                HueUpdate.logger.exception('Timeout error for url: %s', self.url)
+
+        # TODO: Do some checking in this function and return false if failures
+        return True
 
     def shutdown(self):
         """ Turn off the light and disconnect from the bridge """
-        pass
+        for light in self.lights.all_lights.keys():
+            state = {
+                'on' : False,
+            }
+            url = '{}/lights/{}/state'.format(self.url, light)
+            try:
+                response = requests.put(url=url, json=state)
+                if response.ok:
+                    HueUpdate.logger.debug('Change:\n%s', response.json())
+                else:
+                    HueUpdate.logger.debug('Change Error:\n%s', response.text)
+            except requests.exceptions.Timeout:
+                HueUpdate.logger.exception('Timeout error for url: %s', self.url)
 
     def update(self):
         """
         Take a snapshot of the current light colours and send
-        an update to the Hue Bridge
+        an update to the Hue Bridge if any have changed
         """
         last_colors = dict()
         changed = dict()
         while True:
-            time.sleep(0.5)
+            time.sleep(0.3)
             changed.clear()
-            current_colors = self.lights.all_colors
+            current_colors = self.lights.get_current_colorset()
+            HueUpdate.logger.debug('Current: %r', current_colors)
+            HueUpdate.logger.debug('Last: %r', last_colors)
             for light, color in current_colors.items():
                 if last_colors.get(light) != color:
                     # Convert to HSV for Hue Bridge
@@ -74,13 +96,11 @@ class HueUpdate():
                     # Saturation: 254 to 0
                     # Brightness: 1 to 254
                     hue, sat, bri = rgb_to_hsv(*color)
-                    # hue, bri, sat = rgb_to_hls(*color)
                     changed[light] = (hue * 65535, sat * 254, bri * 254)
             if current_colors != last_colors:
-                self.logger.info('Current light values:\n%r', current_colors)
                 last_colors = copy.deepcopy(current_colors)
             if changed:
-                self.logger.info('Changed lights: %r', changed)
+                HueUpdate.logger.debug('Changed lights: %r', changed)
 
             # Update the bridge
             for light, values in changed.items():
@@ -89,49 +109,14 @@ class HueUpdate():
                     'hue' : int(values[0]),
                     'sat' : int(values[1]),
                     'bri' : int(values[2]),
-                    'transitiontime' : 4
+                    'transitiontime' : 3
                 }
                 url = '{}/lights/{}/state'.format(self.url, light)
-                response = requests.put(url=url, json=state)
-                if response.ok:
-                    self.logger.debug('Change:\n%s', response.json())
-                else:
-                    self.logger.debug('Change Error:\n%s', response.text)
-
-
-# try:
-#     result = requests.post(url=url,
-#                             auth=HTTPBasicAuth(self.sak, None),
-#                             json=data)
-#     break
-# except requests.exceptions.Timeout:
-#     logging.exception('Timeout error for url: %s', url)
-#     retry_count = retry_count - 1
-# except requests.exceptions.RequestException as excp:
-#     logging.exception('Request error for url: %s', url)
-#     raise
-
-# try:
-#     logging.debug('url=%s, hook=%r', url, hook)
-#     response = requests.get(url=url,
-#                             auth=HTTPBasicAuth(self.sak, None),
-#                             hooks={'response' : hook})
-#     if response.ok:
-#         if 'version' in url:
-#             # Special case as the result in the response.text
-#             result = response.text.strip('"')
-#         else:
-#             # Return the list of networks as a JSON object
-#             result = response.json()
-#     break
-# except ValueError:
-#     # JSON decode error
-#     logging.debug('JSON decode error for url: %s, resp.text: %r',
-#                     url, response.text)
-#     break
-# except requests.exceptions.Timeout:
-#     logging.exception('Timeout error for url: %s', url)
-#     retry_count = retry_count - 1
-# except requests.exceptions.RequestException as excp:
-#     logging.exception('Request error for url: %s', url)
-#     raise
+                try:
+                    response = requests.put(url=url, json=state)
+                    if response.ok:
+                        HueUpdate.logger.debug('Change:\n%s', response.json())
+                    else:
+                        HueUpdate.logger.debug('Change Error:\n%s', response.text)
+                except requests.exceptions.Timeout:
+                    HueUpdate.logger.exception('Timeout error for url: %s', self.url)

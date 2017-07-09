@@ -92,7 +92,8 @@ class BobHueRequestHandler(socketserver.StreamRequestHandler):
                 """
                 response.append('lights {:d}'.format(self.lights.count))
                 for name, scaninfo in self.lights.all_lights.items():
-                    lightdata = 'light {0} scan {1} {2} {3} {4}'.format(name, *scaninfo)
+                    lightdata = \
+                        'light {0} scan {1} {2} {3} {4}'.format(name, *scaninfo)
                     response.append(lightdata)
         elif cmd == 'set':
             """
@@ -128,11 +129,15 @@ class BobHueRequestHandler(socketserver.StreamRequestHandler):
                     Value is between 0.0 and 100.0.
                     100 means immediate changes.
                     """
+                    # TODO: Save this value and convert to transitiontime
                     pass
                 elif lightcmd == 'interpolation':
                     """
                     Enable or disable color interpolation between 2 steps.
                     Value is a boolean ("0"/"1" or "true"/"false")
+
+                    NOTE: I ignore this command as Hue lights will always
+                          interpolate
                     """
                     pass
                 elif lightcmd == 'use':
@@ -142,19 +147,24 @@ class BobHueRequestHandler(socketserver.StreamRequestHandler):
                     Any color change request for an unused light 
                     will be ignored.
                     """
+                    # TODO: Add a 'use' flag to each light and obey it
                     pass
                 elif lightcmd == 'singlechange':
+                    """
+                    NOTE: I ignore this command as Hue lights will always
+                          transition over time
+                    """
                     pass
         elif cmd == 'sync':
             """
-            Send synchronised signal to wake the devices and tell
-            them request is ready to be read. 
-            'allowsync' must be enabled in configuration file.
-            Ignored if not allowsync or not synchronized device.
+            Send synchronised signal to HueLights to tell
+            it a request is ready to be read. 
+            'allowsync' should be enabled in configuration file.
+            NOTE: In my version I ignore the setting of this option
+                  as I know MrMC always sends a sync.
             Should be sent after each bulk set.
             """
-            self.logger.debug('Colours: {!r}'.format(self.lights.all_colors))
-            # pass
+            self.lights.set_current_colorset()  # Tell lights about new set
 
         # Join all the responses into a single string seperated by
         # carriage returs and terminated in a carriage return
@@ -170,63 +180,64 @@ class BobHueRequestHandler(socketserver.StreamRequestHandler):
 
 class BobHueServer(socketserver.TCPServer):
     """ Server listening for LightEffects clients """
-    def __init__(self, server_address,
-                 handler_class=BobHueRequestHandler,
-                ):
-        self.logger = logging.getLogger('BobHueServer')
-        self.logger.debug('__init__')
-        socketserver.TCPServer.__init__(self, server_address,
-                                        handler_class)
-        return
+    pass
+    # def __init__(self, server_address,
+    #              handler_class=BobHueRequestHandler,
+    #             ):
+    #     self.logger = logging.getLogger('BobHueServer')
+    #     self.logger.debug('__init__')
+    #     socketserver.TCPServer.__init__(self, server_address,
+    #                                     handler_class)
+    #     return
 
-    def server_activate(self):
-        self.logger.debug('server_activate')
-        socketserver.TCPServer.server_activate(self)
-        return
+    # def server_activate(self):
+    #     self.logger.debug('server_activate')
+    #     socketserver.TCPServer.server_activate(self)
+    #     return
 
-    def serve_forever(self, poll_interval=0.5):
-        self.logger.debug('waiting for request')
-        self.logger.info(
-            'Handling requests, press <Ctrl-C> to quit'
-        )
-        socketserver.TCPServer.serve_forever(self, poll_interval)
-        return
+    # def serve_forever(self, poll_interval=0.5):
+    #     self.logger.debug('waiting for request')
+    #     self.logger.info(
+    #         'Handling requests, press <Ctrl-C> to quit'
+    #     )
+    #     socketserver.TCPServer.serve_forever(self, poll_interval)
+    #     return
 
-    def handle_request(self):
-        self.logger.debug('handle_request')
-        return socketserver.TCPServer.handle_request(self)
+    # def handle_request(self):
+    #     self.logger.debug('handle_request')
+    #     return socketserver.TCPServer.handle_request(self)
 
-    def verify_request(self, request, client_address):
-        self.logger.debug('verify_request(%s, %s)',
-                          request, client_address)
-        return socketserver.TCPServer.verify_request(
-            self, request, client_address,
-        )
-
-    def process_request(self, request, client_address):
-        self.logger.debug('process_request(%s, %s)',
-                          request, client_address)
-        return socketserver.TCPServer.process_request(
-            self, request, client_address,
-        )
-
-    def server_close(self):
-        self.logger.debug('server_close')
-        return socketserver.TCPServer.server_close(self)
-
-    def finish_request(self, request, client_address):
-        self.logger.debug('finish_request(%s, %s)',
-                          request, client_address)
-        return socketserver.TCPServer.finish_request(
-            self, request, client_address,
-        )
-
-    # def close_request(self, request_address):
-    #     self.logger.debug('close_request(%s)', request_address)
-    #     return socketserver.TCPServer.close_request(
-    #         self, request_address,
+    # def verify_request(self, request, client_address):
+    #     self.logger.debug('verify_request(%s, %s)',
+    #                       request, client_address)
+    #     return socketserver.TCPServer.verify_request(
+    #         self, request, client_address,
     #     )
 
-    def shutdown(self):
-        self.logger.debug('shutdown()')
-        return socketserver.TCPServer.shutdown(self)
+    # def process_request(self, request, client_address):
+    #     self.logger.debug('process_request(%s, %s)',
+    #                       request, client_address)
+    #     return socketserver.TCPServer.process_request(
+    #         self, request, client_address,
+    #     )
+
+    # def server_close(self):
+    #     self.logger.debug('server_close')
+    #     return socketserver.TCPServer.server_close(self)
+
+    # def finish_request(self, request, client_address):
+    #     self.logger.debug('finish_request(%s, %s)',
+    #                       request, client_address)
+    #     return socketserver.TCPServer.finish_request(
+    #         self, request, client_address,
+    #     )
+
+    # # def close_request(self, request_address):
+    # #     self.logger.debug('close_request(%s)', request_address)
+    # #     return socketserver.TCPServer.close_request(
+    # #         self, request_address,
+    # #     )
+
+    # def shutdown(self):
+    #     self.logger.debug('shutdown()')
+    #     return socketserver.TCPServer.shutdown(self)
