@@ -1,0 +1,22 @@
+#
+# Test file for checking out the http requests to the Hue Bridge
+#
+# Bridge: 192.168.123.103
+# Username: -q7WH-udlI5-c0CGs71eUNrd-l9YxdGU6TmIOcEX
+
+GET http://192.168.123.103/api/-q7WH-udlI5-c0CGs71eUNrd-l9YxdGU6TmIOcEX/config
+
+
+GET http://192.168.123.103/api/-q7WH-udlI5-c0CGs71eUNrd-l9YxdGU6TmIOcEX/lights
+
+
+PUT http://192.168.123.103/api/-q7WH-udlI5-c0CGs71eUNrd-l9YxdGU6TmIOcEX/lights/1/state
+content-type: application/json
+
+{
+    "on": false,
+    "hue": 21846,
+    "sat": 254,
+    "bri": 254,
+    "transitiontime": 4
+}

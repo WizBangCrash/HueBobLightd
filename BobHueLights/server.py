@@ -119,7 +119,8 @@ class BobHueRequestHandler(socketserver.StreamRequestHandler):
                     set light right rgb 0.000000 0.000000 0.000000
                     """
                     if len(message_parts) == 7:
-                        rgb = tuple(message_parts[4:])
+                        # rgb = tuple(message_parts[4:])
+                        rgb = (float(message_parts[4]), float(message_parts[5]), float(message_parts[6]))
                         self.lights.set_light_color(lightname, rgb)
                 elif lightcmd == 'speed':
                     """

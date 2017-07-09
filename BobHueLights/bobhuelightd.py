@@ -15,6 +15,8 @@ import threading
 from BobHueLights.logger import init_logger
 from BobHueLights.server import BobHueServer
 from BobHueLights.server import BobHueRequestHandler
+from BobHueLights.huelights import HueLights
+from BobHueLights.hueupdate import HueUpdate
 from pkg_resources import get_distribution, DistributionNotFound
 
 try:
@@ -24,6 +26,19 @@ except DistributionNotFound:
     __version__ = 'dev'
 
 # TODO: Create a config file and class to process it
+CONFIG = {
+    'name' : 'MyHueBridge',
+    'bridge' : '192.168.123.103',
+    'username' : '-q7WH-udlI5-c0CGs71eUNrd-l9YxdGU6TmIOcEX',
+    'lights' : {
+        # Hue lightid : (Vtop, Vbot, Hleft, Hright)
+        '1' : (50.0, 100.0, 80.0, 100.0),
+        '2' : (50.0, 100.0, 0.0, 20.0),
+        '7' : (0.0, 20.0, 0.0, 100.0)        
+    }
+}
+
+
 
 def main():
     """x
@@ -39,6 +54,21 @@ def main():
     init_logger('bobhuelightd.log')
     logger = logging.getLogger('bobhuelightd')
 
+    # Initialise the lights
+    bridge = CONFIG['bridge']
+    user = CONFIG['username']
+    lights = CONFIG['lights']
+    HueLights(lights)
+
+    # Create a HueUpdate thread
+    hue_updater = HueUpdate(bridge, user)
+    if not hue_updater.connect():
+        logger.critical('Could not connect to Hue Bridge')
+        exit(-1)
+    hue_thread = threading.Thread(target=hue_updater.update)
+    hue_thread.setDaemon(True)  # don't hang on exit
+    hue_thread.start()
+
     # Start the server
     # TODO: Get the port from the config file (19333 is boblightserver)
     address = (socket.gethostname(), 19333)  # let the kernel assign a port
@@ -46,34 +76,13 @@ def main():
     ip, port = server.server_address  # what port was assigned?
 
     # Start the server in a thread
-    t = threading.Thread(target=server.serve_forever)
-    t.setDaemon(True)  # don't hang on exit
-    t.start()
-    t.join()
-
-    # logger = logging.getLogger('client')
-    # logger.info('Server on %s:%s', ip, port)
-
-    # # Connect to the server
-    # logger.debug('creating socket')
-    # s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    # logger.debug('connecting to server')
-    # s.connect((ip, port))
-
-    # # Send the data
-    # message = 'Hello, world'.encode()
-    # logger.debug('sending data: %r', message)
-    # len_sent = s.send(message)
-
-    # # Receive a response
-    # logger.debug('waiting for response')
-    # response = s.recv(len_sent)
-    # logger.debug('response from server: %r', response)
+    server_thread = threading.Thread(target=server.serve_forever)
+    server_thread.setDaemon(True)  # don't hang on exit
+    server_thread.start()
+    server_thread.join()
 
     # Clean up
     server.shutdown()
-    # logger.debug('closing socket')
-    # s.close()
     logger.debug('done')
     server.socket.close()
 
