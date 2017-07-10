@@ -12,31 +12,21 @@ import argparse
 import socket
 from threading import Thread
 from BobHueLights.logger import init_logger
+from BobHueLights.config import BobHueConfig
 from BobHueLights.server import BobHueServer
 from BobHueLights.server import BobHueRequestHandler
 from BobHueLights.huelights import HueLights
 from BobHueLights.hueupdate import HueUpdate
-from pkg_resources import get_distribution, DistributionNotFound
+from pkg_resources import get_distribution
+from pkg_resources import DistributionNotFound, RequirementParseError
 
 try:
     __version__ = get_distribution(__name__.split('.')[0]).version
-except DistributionNotFound:
+except (DistributionNotFound, RequirementParseError):
     # package is not installed
     __version__ = 'dev'
 
 # TODO: Create a config file and class to process it
-CONFIG = {
-    'name' : 'MyHueBridge',
-    'bridge' : '192.168.123.103',
-    'username' : '-q7WH-udlI5-c0CGs71eUNrd-l9YxdGU6TmIOcEX',
-    'lights' : {
-        # Hue lightid : (Vtop, Vbot, Hleft, Hright)
-        '1' : (50.0, 100.0, 70.0, 100.0),
-        '2' : (50.0, 100.0, 0.0, 30.0),
-        '7' : (0.0, 20.0, 0.0, 100.0)        
-    }
-}
-
 
 def main():
     """
@@ -44,6 +34,8 @@ def main():
     and then start the daemon on the appropiate socket
     """
     parser = argparse.ArgumentParser()
+    parser.add_argument('--config', type=str, default=None,
+                        help='location of configuration file')
     parser.add_argument('--debug', default=False,
                         action='store_true',
                         help='turn on debug logging information')
@@ -55,10 +47,17 @@ def main():
     init_logger('bobhuelightd.log', args.debug)
     logger = logging.getLogger('bobhuelightd')
 
+    # Load the configuration file
+    conf = BobHueConfig()
+    conf.read_config(args.config)
+    # Validate the conf fiela nd exit if bad
+    if not conf.validate():
+        exit(-1)
+
     # Initialise the lights
-    bridge = CONFIG['bridge']
-    user = CONFIG['username']
-    lights = CONFIG['lights']
+    bridge = conf.bridge_address
+    user = conf.username
+    lights = conf.lights
     HueLights().setup(lights)
 
     # Create a HueUpdate thread

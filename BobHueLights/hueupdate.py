@@ -89,6 +89,7 @@ class HueUpdate():
             HueUpdate.logger.debug('Current: %r', current_colors)
             HueUpdate.logger.debug('Last: %r', last_colors)
             for light, color in current_colors.items():
+                # TODO: Compare as integers, not floats to cut down on unnecessary changes
                 if last_colors.get(light) != color:
                     # Convert to HSV for Hue Bridge
                     # Hue, Saturation, Brightness
