@@ -13,6 +13,7 @@ import logging
 import re
 import json
 from jsmin import jsmin
+import validators
 
 # Globals
 BASEDIR = os.path.realpath(os.path.dirname(__file__))
@@ -22,11 +23,16 @@ class ConfigParser():
     """
     Class to load a config file and provide ability to
     merge it with others
+
+    See https://stackoverflow.com/questions/25577578/python-access-class-variable-from-instance
+    for how to use the class variable 'data'
     """
+    logger = None
     data = dict()
 
     def __init__(self):
-        self.logger = logging.getLogger('ConfigParser')
+        if type(self).logger is None:
+            type(self).logger = logging.getLogger('ConfigParser')
 
     def __remove_trailing_commas(self, json_like):
         """
@@ -50,6 +56,7 @@ class ConfigParser():
         Recursive function to handle updating the parameters dictionary
         at all levels
         '''
+        #pylint: disable=C0103
         for k, v in new.items():
             if isinstance(v, collections.Mapping):
                 r = self._update_config(orig.get(k, {}), v)
@@ -70,7 +77,7 @@ class ConfigParser():
             with open(cfgfile, 'r') as jsonfile:
                 config = jsmin(jsonfile.read())
                 config = self.__remove_trailing_commas(config)
-                ConfigParser.data.update(json.loads(config))
+                type(self).data.update(json.loads(config))
                 return True
         else:
             self.logger.error('Failed to load configuration file: %s', cfgfile)
@@ -94,7 +101,7 @@ class ConfigParser():
             config = jsmin(jsonfile.read())
             config = self.__remove_trailing_commas(config)
             mergedata = json.loads(config)
-            self._update_config(ConfigParser.data, mergedata)
+            self._update_config(type(self).data, mergedata)
         return True
 
     def get_parameter(self, param_name, default=None):
@@ -103,44 +110,34 @@ class ConfigParser():
         or the default if a default is supplied
         '''
         #pylint: disable=R0201
-        return ConfigParser.data.get(param_name, default)
+        return self.data.get(param_name, default)
 
 
 class BobHueConfig(ConfigParser):
     """ Class to manage the configuration file & parameters """
-    def __init__(self):
-        ConfigParser.__init__(self)
+
+    @property
+    def server_port(self):
+        """ Return the server port number (default 19333) """
+        server = self.data['server']
+        port = server.get('port', 19333)
+        return port
 
     @property
     def bridge_address(self):
         """ Return the bridge address """
-        return ConfigParser.data.get('bridge')
+        # hue_bridge = self.data.get('hueBridge')
+        # if hue_bridge:
+        #     return self.data.get('address')
+        # else:
+        #     return None
+        return self.data['hueBridge']['address']
 
     @property
     def username(self):
         """ Return the username """
-        return ConfigParser.data.get('username')
-
-    @property
-    def lights(self):
-        """
-        Return the lights as a dictionary of:
-            "name" : (top, bottom, left, right)
-        """
-        thelights = dict()
-        parameters = ConfigParser.data.get('lights')
-        if not parameters:
-            return None
-
-        for light in parameters:
-            name = light.get('name')
-            vscan = light.get('vscan')
-            hscan = light.get('hscan')
-            thelights[name] = (
-                vscan['top'], vscan['bottom'],
-                hscan['left'], hscan['right']
-            )
-        return thelights
+        # return ConfigParser.data.get('username')
+        return self.data['hueBridge']['username']
 
     def validate(self):
         """ Check the conf file for errors """
@@ -149,27 +146,44 @@ class BobHueConfig(ConfigParser):
         result = True
 
         # Check all the mandatory parameters first
-        if ConfigParser.data.get('bridge'):
-            # TODO: Validate IP address or FQDN
-            pass
-        else:
-            self.logger.error('Missing "bridge" parameter in conf file')
-            result = False
+        if self.data.get('hueBridge'):
+            hue_bridge = self.data['hueBridge']
+            if hue_bridge.get('address'):
+                address = hue_bridge.get('address')
+                if not validators.domain(address) \
+                        and not validators.ip_address.ipv4(address):
+                    self.logger.error('Incorrect "address" parameter in conf file')
+                    result = False
+            else:
+                self.logger.error('Missing "address" parameter in conf file')
+                result = False
 
-        if ConfigParser.data.get('username'):
-            # TODO: validate the Hue username
-            pass
-        else:
-            self.logger.error('Missing "username" parameter in conf file')
-            result = False
+            if hue_bridge.get('username'):
+                # TODO: validate the Hue username
+                pass
+            else:
+                self.logger.error('Missing "username" parameter in conf file')
+                result = False
 
-        if ConfigParser.data.get('lights'):
-            for light in ConfigParser.data.get('lights'):
+        if self.data.get('lights'):
+            for light in self.data.get('lights'):
+                light_id = light.get('id')
+                if light_id is None:
+                    self.logger.error('Missing "id" parameter in light: %s',
+                                      light)
+                    result = False
                 name = light.get('name')
-                if not name:
+                if name is None:
                     self.logger.error('Missing "name" parameter in light: %s',
                                       light)
                     result = False
+                gamut = light.get('gamut')
+                # gamut is optional, so only check if present
+                if gamut:
+                    if not (gamut == 'GamutA' or gamut == 'GamutB' or gamut == 'GamutC'):
+                        self.logger.error('Incorrect "gamut" parameter in light: %s',
+                                          light)
+                        result = False
                 vscan = light.get('vscan')
                 if vscan:
                     if vscan.get('top') is None:
@@ -203,5 +217,13 @@ class BobHueConfig(ConfigParser):
             result = False
 
         # Now check all the optional parameters
+        if self.data.get('server'):
+            server = ConfigParser.data['server']
+            if not server.get('port'):
+                self.logger.error('Missing "port" parameter in "server"')
+                result = False
+            elif not isinstance(server.get('port'), int):
+                self.logger.error('"port" parameter not integer in "server"')
+                result = False
 
         return result

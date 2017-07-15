@@ -1,0 +1,16 @@
+// Place your settings in this file to overwrite default and user settings.
+{
+    "editor.minimap.enabled": false,
+    "python.unitTest.pyTestEnabled": true,
+    "python.unitTest.pyTestArgs": [
+        "--exitfirst",
+        "--verbose"
+    ],
+    "python.linting.pylintArgs": [
+        "--disable=C0301,R0903,R0914,R0915",
+        "--max-attributes=10"
+    ],
+    "files.associations": {
+        "*.conf": "json"
+    }
+}

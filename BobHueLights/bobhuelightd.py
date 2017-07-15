@@ -15,8 +15,7 @@ from BobHueLights.logger import init_logger
 from BobHueLights.config import BobHueConfig
 from BobHueLights.server import BobHueServer
 from BobHueLights.server import BobHueRequestHandler
-from BobHueLights.huelights import HueLights
-from BobHueLights.hueupdate import HueUpdate
+from BobHueLights.huelights import HueRequest, HueLight, HueUpdate
 from pkg_resources import get_distribution
 from pkg_resources import DistributionNotFound, RequirementParseError
 
@@ -26,7 +25,6 @@ except (DistributionNotFound, RequirementParseError):
     # package is not installed
     __version__ = 'dev'
 
-# TODO: Create a config file and class to process it
 
 def main():
     """
@@ -45,37 +43,53 @@ def main():
 
     # Initialise the logger
     init_logger('bobhuelightd.log', args.debug)
+    # init_logger('bobhuelightd.log', True)
     logger = logging.getLogger('bobhuelightd')
 
     # Load the configuration file
     conf = BobHueConfig()
     conf.read_config(args.config)
-    # Validate the conf fiela nd exit if bad
+    # Validate the conf file and exit if bad
     if not conf.validate():
         exit(-1)
 
     # Initialise the lights
-    bridge = conf.bridge_address
-    user = conf.username
-    lights = conf.lights
-    HueLights().setup(lights)
+    HueRequest(conf.bridge_address, conf.username)
+    if not HueRequest.connect():
+        logger.error('Unable to connect to bridge at address "%s"',
+                     conf.bridge_address)
+        exit(-1)
+
+    lights = list()
+    lights_conf = conf.get_parameter("lights")
+    for light in lights_conf:
+        light_name = light['name']
+        light_id = light['id']
+        light_scan = (light['vscan']['top'], light['vscan']['bottom'],
+                      light['hscan']['left'], light['hscan']['right'])
+        light_gamut = light.get('gamut')
+        lights.append(HueLight(light_name, light_id, *light_scan, light_gamut))
 
     # Create a HueUpdate thread
-    hue_updater = HueUpdate(bridge, user)
+    # TODO: Remove HueUpdate and just create a function in this
+    #       file to update the lights
+    logger.info('Starting lights update thread')
+    hue_updater = HueUpdate(lights)
     if not hue_updater.connect():
         logger.critical('Could not connect to Hue Bridge')
         exit(-1)
-    hue_thread = Thread(target=hue_updater.update)
+    hue_thread = Thread(target=hue_updater.update_forever)
     hue_thread.setDaemon(True)  # don't hang on exit
     hue_thread.start()
 
-    # Start the server
-    # TODO: Get the port from the config file (19333 is boblightserver)
-    address = (socket.gethostname(), 19333)  # let the kernel assign a port
+    # Create the server
+    address = (socket.gethostname(), conf.server_port)  # let the kernel assign a port
     server = BobHueServer(address, BobHueRequestHandler)
-    ip, port = server.server_address  # what port was assigned?
+    # Store the HueLight array as data in the server for the requesthandler
+    server.data = lights
 
     # Start the server in a thread
+    logger.info('Starting server update thread')
     server_thread = Thread(target=server.serve_forever)
     server_thread.setDaemon(True)  # don't hang on exit
     server_thread.start()

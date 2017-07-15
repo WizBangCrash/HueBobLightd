@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-bobhuelightd
+Socket Server
 This module contains main daemon for the bobhuelightd server
 """
 
@@ -9,23 +9,19 @@ __copyright__ = "Copyright 2017, David Dix"
 
 import logging
 import socketserver
-from BobHueLights.huelights import HueLights
+from BobHueLights.huelights import HueLight
 
 class BobHueRequestHandler(socketserver.StreamRequestHandler):
     """ My socket request handler """
     def __init__(self, request, client_address, server):
         self.logger = logging.getLogger('BobHueRequestHandler')
         self.logger.debug('__init__')
-        socketserver.StreamRequestHandler.__init__(self, request,
-                                                   client_address,
-                                                   server)
-        self.lights = None
+        super().__init__(request, client_address, server)
         return
 
-    def setup(self):
-        self.logger.debug('setup')
-        self.lights = HueLights()
-        return socketserver.StreamRequestHandler.setup(self)
+    # def setup(self):
+    #     self.logger.debug('setup')
+    #     return super()
 
     def handle(self):
         self.logger.debug('handle')
@@ -54,7 +50,9 @@ class BobHueRequestHandler(socketserver.StreamRequestHandler):
 
     def process_request(self, request):
         """ Process the incoming request """
+        #pylint: disable=R0912
         response = list()
+        lights = self.server.data
 
         # First we check the message format
         message_parts = request.split()
@@ -88,12 +86,16 @@ class BobHueRequestHandler(socketserver.StreamRequestHandler):
                 """
                 Returns the lights declared in server configuration.
                 First line is the number of lights, then each line
-                corresponds to one light and its scanning parameters.
+                corresponds to one light and its scanning parameters e.g.
+
+                lights 1
+                light 1 scan top, bottom, left, right
                 """
-                response.append('lights {:d}'.format(self.lights.count))
-                for name, scaninfo in self.lights.all_lights.items():
+                response.append('lights {:d}'.format(len(lights)))
+                for light in lights:
                     lightdata = \
-                        'light {0} scan {1} {2} {3} {4}'.format(name, *scaninfo)
+                        'light {0} scan {1} {2} {3} {4}'.format(light.hue_id,
+                                                                *light.scanarea)
                     response.append(lightdata)
         elif cmd == 'set':
             """
@@ -107,11 +109,11 @@ class BobHueRequestHandler(socketserver.StreamRequestHandler):
                 The highest priority is the lowest number
                 """
                 pass
-            if subcmd == 'light': # rbg
+            if subcmd == 'light':
                 """
-                Commands to control what to do with the lights 
+                Commands to control what to do with the lights
                 """
-                lightname = message_parts[2]
+                lightid = message_parts[2]
                 lightcmd = message_parts[3]
                 if lightcmd == 'rgb':
                     """
@@ -120,9 +122,11 @@ class BobHueRequestHandler(socketserver.StreamRequestHandler):
                     set light right rgb 0.000000 0.000000 0.000000
                     """
                     if len(message_parts) == 7:
-                        # rgb = tuple(message_parts[4:])
-                        rgb = (float(message_parts[4]), float(message_parts[5]), float(message_parts[6]))
-                        self.lights.set_light_color(lightname, rgb)
+                        light = next((x for x in lights if x.hue_id == lightid), None)
+                        if light:
+                            light.set_color(float(message_parts[4]),  # red
+                                            float(message_parts[5]),  # green
+                                            float(message_parts[6]))  # blue
                 elif lightcmd == 'speed':
                     """
                     Change the transition speed of one light.
@@ -144,7 +148,7 @@ class BobHueRequestHandler(socketserver.StreamRequestHandler):
                     """
                     Declare whether a light is used.
                     By default all lights are used.
-                    Any color change request for an unused light 
+                    Any color change request for an unused light
                     will be ignored.
                     """
                     # TODO: Add a 'use' flag to each light and obey it
@@ -158,37 +162,30 @@ class BobHueRequestHandler(socketserver.StreamRequestHandler):
         elif cmd == 'sync':
             """
             Send synchronised signal to HueLights to tell
-            it a request is ready to be read. 
+            it a request is ready to be read.
             'allowsync' should be enabled in configuration file.
             NOTE: In my version I ignore the setting of this option
                   as I know MrMC always sends a sync.
             Should be sent after each bulk set.
             """
-            self.lights.set_current_colorset()  # Tell lights about new set
+            # TODO: signal to the light.update function a new set of updates
 
         # Join all the responses into a single string seperated by
         # carriage returs and terminated in a carriage return
-        if response:
-            return '\n'.join(response) + '\n'
-        else:
-            return None
+        return '\n'.join(response) + '\n' if response else None
 
-    def finish(self):
-        self.logger.debug('finish')
-        return socketserver.StreamRequestHandler.finish(self)
+    # def finish(self):
+    #     self.logger.debug('finish')
+    #     return super()
 
 
 class BobHueServer(socketserver.TCPServer):
     """ Server listening for LightEffects clients """
     pass
-    # def __init__(self, server_address,
-    #              handler_class=BobHueRequestHandler,
-    #             ):
+    # def __init__(self, server_address, handler_class):
     #     self.logger = logging.getLogger('BobHueServer')
     #     self.logger.debug('__init__')
-    #     socketserver.TCPServer.__init__(self, server_address,
-    #                                     handler_class)
-    #     return
+    #     socketserver.TCPServer.__init__(self, server_address, handler_class)
 
     # def server_activate(self):
     #     self.logger.debug('server_activate')

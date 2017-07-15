@@ -31,9 +31,9 @@ class TestHueConfig():
         assert self.config.username == '<hue api user name>'
 
         lights = self.config.lights
-        assert 'strip' in lights.keys()
-        assert lights['right'] == (50, 100, 70, 100)
-        assert lights['left'] == (50, 100, 0, 30)
+        assert '7' in lights.keys()
+        assert lights['1'] == (50, 100, 70, 100)
+        assert lights['2'] == (50, 100, 0, 30)
 
     def test_read_file_extra_commas(self):
         """ REad a conf file with trailing commas """
