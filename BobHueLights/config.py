@@ -70,6 +70,7 @@ class ConfigParser():
         Read in the config file for later reference
         '''
         # Use a default file if none supplied
+        # TODO: If a file is provided look for it in CWD and other common places
         if cfgfile is None:
             cfgfile = '{}/bobhuelightd.conf'.format(BASEDIR)
         self.logger.debug('Reading %s', cfgfile)
