@@ -16,14 +16,12 @@ def init_logger(filename, debug):
     """
     Initialise the logger
     Send INFO messages to console
-    Send all messages to flogfile
+    Send all messages to logfile
     Rotate the file after specified number of backups
     """
-    # TODO: Get logdir, logfile & loglevel from the config file
-    logfile = '{}/{}'.format(os.getcwd(), filename)
     loglevel = logging.DEBUG if debug else logging.INFO
     backups = 2
-    need_roll = os.path.isfile(logfile)
+    need_roll = os.path.isfile(filename)
     logger = logging.getLogger()
     logger.setLevel(loglevel)
     file_fmt = logging.Formatter('%(asctime)s.%(msecs)d [%(levelname)s] '
@@ -38,7 +36,7 @@ def init_logger(filename, debug):
     consoleh.setFormatter(console_fmt)
 
     # Create a rotating handler for the files
-    fileh = logging.handlers.RotatingFileHandler(logfile, backupCount=backups)
+    fileh = logging.handlers.RotatingFileHandler(filename, backupCount=backups)
     fileh.setLevel(loglevel)
     fileh.setFormatter(file_fmt)
 

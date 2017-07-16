@@ -120,8 +120,11 @@ class HueLight():
         self.rgb = (0.0, 0.0, 0.0)
         self.xy_new = (0, 0)
         self.xy_previous = (0, 0)
-        self.logger.info('Created light: %s(%d, %d, %d, %d)',
-                         hue_id, left, right, top, bottom)
+
+    def __repr__(self):
+        return '{}, {}, ({:d}, {:d}, {:d}, {:d})'.format(self.hue_id,
+                                                         self.name,
+                                                         *self.scanarea)
 
     @staticmethod
     def convert_gamut(gamut):
