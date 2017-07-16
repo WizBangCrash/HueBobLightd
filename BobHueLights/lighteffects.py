@@ -25,6 +25,8 @@ def main():
     The client sends messages that the AppleTV4 would send
     """
     parser = argparse.ArgumentParser()
+    parser.add_argument('--server', type=str, default=socket.gethostname(),
+                        help='IPv4 address of boblightd server')
     parser.add_argument('--debug', default=False,
                         action='store_true',
                         help='turn on debug logging information')
@@ -36,7 +38,7 @@ def main():
     init_logger('lighteffects.log', args.debug)
     logger = logging.getLogger('LightEffects')
 
-    address = (socket.gethostname(), 19333)
+    address = (args.server, 19333)
     # address = ('192.168.123.192', 19333)
     logger.info('Server on %s', address)
 

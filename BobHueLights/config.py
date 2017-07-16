@@ -72,7 +72,7 @@ class ConfigParser():
         # Use a default file if none supplied
         # TODO: If a file is provided look for it in CWD and other common places
         if cfgfile is None:
-            cfgfile = '{}/bobhuelightd.conf'.format(BASEDIR)
+            cfgfile = '{}/bobhuelightd.conf'.format(os.getcwd())
         self.logger.debug('Reading %s', cfgfile)
         if os.path.isfile(cfgfile):
             with open(cfgfile, 'r') as jsonfile:
@@ -116,6 +116,13 @@ class ConfigParser():
 
 class BobHueConfig(ConfigParser):
     """ Class to manage the configuration file & parameters """
+
+    @property
+    def server_address(self):
+        """ Return the forced server IP Address """
+        server = self.data['server']
+        port = server.get('address', None)
+        return port
 
     @property
     def server_port(self):

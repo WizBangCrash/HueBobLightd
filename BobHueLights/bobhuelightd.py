@@ -7,6 +7,7 @@ This module contains main daemon for the bobhuelightd server
 __author__ = "David Dix"
 __copyright__ = "Copyright 2017, David Dix"
 
+import os
 import logging
 import argparse
 import socket
@@ -34,6 +35,10 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', type=str, default=None,
                         help='location of configuration file')
+    parser.add_argument('--logdir', type=str, default=None,
+                        help='location of log files')
+    parser.add_argument('--server', type=str, default=None,
+                        help='IPv4 address of boblightd server')
     parser.add_argument('--debug', default=False,
                         action='store_true',
                         help='turn on debug logging information')
@@ -42,9 +47,14 @@ def main():
     args = parser.parse_args()
 
     # Initialise the logger
-    init_logger('bobhuelightd.log', args.debug)
+    if args.logdir:
+        logfile = '{}/bobhuelightd.log'.format(args.logdir)
+    else:
+        logfile = '{}/bobhuelightd.log'.format(os.getcwd())
+    init_logger(logfile, args.debug)
     # init_logger('bobhuelightd.log', True)
     logger = logging.getLogger('bobhuelightd')
+    logger.info('Started: version %s', __version__)
 
     # Load the configuration file
     conf = BobHueConfig()
@@ -70,6 +80,9 @@ def main():
         light_gamut = light.get('gamut')
         lights.append(HueLight(light_name, light_id, *light_scan, light_gamut))
 
+    for light in lights:
+        logger.info('HueLight: %r', light)
+
     # Create a HueUpdate thread
     # TODO: Remove HueUpdate and just create a function in this
     #       file to update the lights
@@ -83,13 +96,18 @@ def main():
     hue_thread.start()
 
     # Create the server
-    address = (socket.gethostname(), conf.server_port)  # let the kernel assign a port
+    if args.server:
+        address = (args.server, conf.server_port)
+    elif conf.server_address:
+        address = (conf.server_address, conf.server_port)
+    else:
+        address = (socket.gethostname(), conf.server_port)  # let the kernel assign a port
     server = BobHueServer(address, BobHueRequestHandler)
     # Store the HueLight array as data in the server for the requesthandler
     server.data = lights
 
     # Start the server in a thread
-    logger.info('Starting server update thread')
+    logger.info('Starting server update thread: %r', server.server_address)
     server_thread = Thread(target=server.serve_forever)
     server_thread.setDaemon(True)  # don't hang on exit
     server_thread.start()
