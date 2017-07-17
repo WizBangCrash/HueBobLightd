@@ -14,7 +14,7 @@ from time import sleep
 from threading import Lock
 from urllib.request import urlopen, URLError
 import requests
-from BobHueLights.colorconvert import Converter, GamutA, GamutB, GamutC
+from HueBobLightd.colorconvert import Converter, GamutA, GamutB, GamutC
 
 
 """

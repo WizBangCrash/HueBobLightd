@@ -9,7 +9,7 @@ __copyright__ = "Copyright 2017, David Dix"
 
 import logging
 import socketserver
-from BobHueLights.huelights import HueLight
+from HueBobLightd.huelights import HueLight
 
 class BobHueRequestHandler(socketserver.StreamRequestHandler):
     """ My socket request handler """

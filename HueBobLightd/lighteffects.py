@@ -10,7 +10,7 @@ __copyright__ = "Copyright 2017, David Dix"
 import logging
 import argparse
 import socket
-from BobHueLights.logger import init_logger
+from HueBobLightd.logger import init_logger
 from pkg_resources import get_distribution, DistributionNotFound
 
 try:

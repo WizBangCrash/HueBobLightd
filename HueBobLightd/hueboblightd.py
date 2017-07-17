@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-bobhuelightd
-This module contains main daemon for the bobhuelightd server
+hueboblightd
+This module contains main daemon for the hueboblightd server
 """
 
 __author__ = "David Dix"
@@ -12,11 +12,11 @@ import logging
 import argparse
 import socket
 from threading import Thread
-from BobHueLights.logger import init_logger
-from BobHueLights.config import BobHueConfig
-from BobHueLights.server import BobHueServer
-from BobHueLights.server import BobHueRequestHandler
-from BobHueLights.huelights import HueRequest, HueLight, HueUpdate
+from HueBobLightd.logger import init_logger
+from HueBobLightd.config import BobHueConfig
+from HueBobLightd.server import BobHueServer
+from HueBobLightd.server import BobHueRequestHandler
+from HueBobLightd.huelights import HueRequest, HueLight, HueUpdate
 from pkg_resources import get_distribution
 from pkg_resources import DistributionNotFound, RequirementParseError
 
@@ -48,12 +48,12 @@ def main():
 
     # Initialise the logger
     if args.logdir:
-        logfile = '{}/bobhuelightd.log'.format(args.logdir)
+        logfile = '{}/hueboblightd.log'.format(args.logdir)
     else:
-        logfile = '{}/bobhuelightd.log'.format(os.getcwd())
+        logfile = '{}/hueboblightd.log'.format(os.getcwd())
     init_logger(logfile, args.debug)
-    # init_logger('bobhuelightd.log', True)
-    logger = logging.getLogger('bobhuelightd')
+    # init_logger('hueboblightd.log', True)
+    logger = logging.getLogger('hueboblightd')
     logger.info('Started: version %s', __version__)
 
     # Load the configuration file
