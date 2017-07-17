@@ -12,15 +12,15 @@ import logging
 import logging.handlers
 
 
-def init_logger(filename, debug):
+def init_logger(filename, debug, backups=2):
     """
     Initialise the logger
     Send INFO messages to console
     Send all messages to logfile
     Rotate the file after specified number of backups
+    Defaults to 2 backups
     """
     loglevel = logging.DEBUG if debug else logging.INFO
-    backups = 2
     need_roll = os.path.isfile(filename)
     logger = logging.getLogger()
     logger.setLevel(loglevel)
@@ -31,12 +31,13 @@ def init_logger(filename, debug):
 
     # Set console up for INFO only
     consoleh = logging.StreamHandler()
-    # TODO: consoleh.setLevel(logging.INFO)
     consoleh.setLevel(logging.INFO)
     consoleh.setFormatter(console_fmt)
 
-    # Create a rotating handler for the files
-    fileh = logging.handlers.RotatingFileHandler(filename, backupCount=backups)
+    # Create a rotating handler for the files with a max size of 250MB
+    fileh = logging.handlers.RotatingFileHandler(filename,
+                                                 maxBytes=100*1024*1024,
+                                                 backupCount=backups)
     fileh.setLevel(loglevel)
     fileh.setFormatter(file_fmt)
 

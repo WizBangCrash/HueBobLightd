@@ -10,6 +10,8 @@ __copyright__ = "Copyright 2017, David Dix"
 import os
 import logging
 import argparse
+import platform
+import signal
 import socket
 from threading import Thread
 from HueBobLightd.logger import init_logger
@@ -25,6 +27,36 @@ try:
 except (DistributionNotFound, RequirementParseError):
     # package is not installed
     __version__ = 'dev'
+
+
+class SignalCatcher:
+    """ Catch the relevant signals and clean up the daemon """
+    def __init__(self, server, light_updater):
+        self.signint_hdlr = None
+        self.sighup_hdlr = None
+        self.server = server
+        self.light_updater = light_updater
+
+    def __enter__(self):
+        """ Set up the handled signals """
+        self.signint_hdlr = signal.signal(signal.SIGINT, self.signal_handler)
+        if platform.system().lower() != 'windows':
+            self.sighup_hdlr = signal.signal(signal.SIGHUP, self.signal_handler)
+
+    def __exit__(self, type, value, traceback):
+        """ Restore the handled signals """
+        signal.signal(signal.SIGINT, self.signint_hdlr)
+        signal.signal(signal.SIGHUP, self.sighup_hdlr)
+
+    def signal_handler(self, signum, frame):
+        """ Handler for the signals we are interested in """
+        if signum == signal.SIGINT:
+            logging.info('Caught SIGINT. Shutting down daemon')
+            self.light_updater.shutdown()
+            self.server.shutdown()
+        elif signum == signal.SIGHUP:
+            logging.info('Caught SIGHUP. Reloading config file')
+            # TODO: Implement reloading of the config file and reinitialising lights
 
 
 def main():
@@ -51,7 +83,7 @@ def main():
         logfile = '{}/hueboblightd.log'.format(args.logdir)
     else:
         logfile = '{}/hueboblightd.log'.format(os.getcwd())
-    init_logger(logfile, args.debug)
+    init_logger(logfile, backups=4, debug=args.debug)
     # init_logger('hueboblightd.log', True)
     logger = logging.getLogger('hueboblightd')
     logger.info('Started: version %s', __version__)
@@ -68,16 +100,16 @@ def main():
 
     lights = list()
     lights_conf = conf.get_parameter("lights")
+    # Create a list of lights for the updater object
     for light in lights_conf:
         light_name = light['name']
         light_id = light['id']
         light_scan = (light['vscan']['top'], light['vscan']['bottom'],
                       light['hscan']['left'], light['hscan']['right'])
         light_gamut = light.get('gamut')
-        lights.append(HueLight(light_name, light_id, *light_scan, light_gamut))
-
-    for light in lights:
-        logger.info('HueLight: %r', light)
+        hue = HueLight(light_name, light_id, *light_scan, light_gamut)
+        logger.info('HueLight: %r', hue)
+        lights.append(hue)
 
     # Create the light updater object
     hue_updater = HueUpdate(lights)
@@ -93,38 +125,28 @@ def main():
     # Store the HueLight array as data in the server for the requesthandler
     server.data = lights
 
-    # Create a HueUpdate thread
-    logger.info('Starting lights update thread')
-    hue_thread = Thread(target=hue_updater.update_forever)
-    hue_thread.setDaemon(True)  # don't hang on exit
-    hue_thread.start()
+    with SignalCatcher(server, hue_updater):
+        # Create a HueUpdate thread
+        logger.info('Starting lights update thread')
+        hue_thread = Thread(target=hue_updater.update_forever)
+        hue_thread.setDaemon(True)  # don't hang on exit
+        hue_thread.start()
 
-    # Start the server in a thread
-    logger.info('Starting server update thread: %r', server.server_address)
-    server_thread = Thread(target=server.serve_forever)
-    server_thread.setDaemon(True)  # don't hang on exit
-    server_thread.start()
-    server_thread.join()
+        # Start the server in a thread
+        logger.info('Starting server update thread: %r', server.server_address)
+        server_thread = Thread(target=server.serve_forever)
+        server_thread.setDaemon(True)  # don't hang on exit
+        server_thread.start()
 
-    # Clean up
-    hue_updater.shutdown()
-    server.shutdown()
-    logger.debug('done')
-    server.socket.close()
+        # Go to sleep and wait for server thread to complete
+        server_thread.join()
+        hue_thread.join()
 
+    server.socket.close()        # cleanup
     logger.info('Exiting...')
 
     return
 
-"""
-TODO:
-Implement signals
-Main thread recieves a signal for the following:
-    Re-read the conf and apply it
-        This can be done by re-intialising the HueRequest and HueLight objects
-        Would need to restart the server if the port changed
-    Stop the daemon
-"""
 
 # When running as a script we should call main
 if __name__ == '__main__':
