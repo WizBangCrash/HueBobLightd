@@ -15,7 +15,7 @@ class BobHueRequestHandler(socketserver.StreamRequestHandler):
     """ My socket request handler """
     def __init__(self, request, client_address, server):
         self.logger = logging.getLogger('BobHueRequestHandler')
-        self.logger.debug('__init__')
+        # self.logger.debug('__init__')
         super().__init__(request, client_address, server)
         return
 
@@ -33,18 +33,16 @@ class BobHueRequestHandler(socketserver.StreamRequestHandler):
                     break
                 # Decode the request into a string and strip unwanted whitespace
                 request = request.decode().strip()
-                self.logger.debug('RX [%s]: %s', self.client_address[0],
-                                  request)
+                self.logger.debug('RX [%s]: %s', self.client_address[0], request)
                 # Process the request
                 response = self.process_request(request)
 
                 if response:
                     # Send the response
-                    self.logger.debug('TX [%s]: %s', self.client_address[0],
-                                      response)
+                    self.logger.debug('TX [%s]: %s', self.client_address[0], response)
                     self.wfile.write(response.encode())
         except Exception as e:
-            self.logger.debug('ER [%s]: %r', self.client_address[0], e)
+            self.logger.error('ER [%s]: %r', self.client_address[0], e)
             raise
         self.logger.debug('DC [%s]: disconnected', self.client_address[0])
 
@@ -62,6 +60,7 @@ class BobHueRequestHandler(socketserver.StreamRequestHandler):
             This is the connection command.
             Hello command should return 'hello' from the server
             """
+            self.logger.info('hello')
             response.append('hello')
         elif cmd == 'ping':
             """
@@ -69,6 +68,7 @@ class BobHueRequestHandler(socketserver.StreamRequestHandler):
             any of the lights.
             Return the number of lights in use by this client
             """
+            self.logger.info('ping')
             response.append('ping 1')
         elif cmd == 'get':
             """
@@ -81,6 +81,7 @@ class BobHueRequestHandler(socketserver.StreamRequestHandler):
                 Returns the protocol version used by the server,
                 current version is 5.
                 """
+                self.logger.info('version')
                 response.append('version 5')
             elif subcmd == 'lights':
                 """
@@ -91,12 +92,14 @@ class BobHueRequestHandler(socketserver.StreamRequestHandler):
                 lights 1
                 light 1 scan top, bottom, left, right
                 """
+                self.logger.info('lights')
                 response.append('lights {:d}'.format(len(lights)))
                 for light in lights:
                     lightdata = \
                         'light {0} scan {1} {2} {3} {4}'.format(light.hue_id,
                                                                 *light.scanarea)
                     response.append(lightdata)
+                    self.logger.debug('Response: %s', lightdata)
         elif cmd == 'set':
             """
             This command is used to change lights and client parameters.
@@ -108,6 +111,7 @@ class BobHueRequestHandler(socketserver.StreamRequestHandler):
                 Change the client priority, from 0 to 255, default is 128.
                 The highest priority is the lowest number
                 """
+                self.logger.info('priority: %d', message_parts[2])
                 pass
             if subcmd == 'light':
                 """
@@ -121,6 +125,10 @@ class BobHueRequestHandler(socketserver.StreamRequestHandler):
                     Values are floats: R, G, B  e.g.
                     set light right rgb 0.000000 0.000000 0.000000
                     """
+                    self.logger.debug('light %s rgb: %f, %f, %f', lightid,
+                                       message_parts[4],
+                                       message_parts[5],
+                                       message_parts[6])
                     if len(message_parts) == 7:
                         light = next((x for x in lights if x.hue_id == lightid), None)
                         if light:
@@ -132,9 +140,11 @@ class BobHueRequestHandler(socketserver.StreamRequestHandler):
                     Change the transition speed of one light.
                     Value is between 0.0 and 100.0.
                     100 means immediate changes.
+                    NOTE: Hue lights are not fast, so no point in processing
+                          this command
                     """
-                    # TODO: Save this value and convert to transitiontime
-                    pass
+                    self.logger.info('light %s speed: %f', lightid,
+                                     message_parts[3])
                 elif lightcmd == 'interpolation':
                     """
                     Enable or disable color interpolation between 2 steps.
@@ -143,7 +153,8 @@ class BobHueRequestHandler(socketserver.StreamRequestHandler):
                     NOTE: I ignore this command as Hue lights will always
                           interpolate
                     """
-                    pass
+                    self.logger.info('light %s nterpolation: %d', lightid,
+                                     message_parts[3])
                 elif lightcmd == 'use':
                     """
                     Declare whether a light is used.
@@ -151,14 +162,15 @@ class BobHueRequestHandler(socketserver.StreamRequestHandler):
                     Any color change request for an unused light
                     will be ignored.
                     """
-                    # TODO: Add a 'use' flag to each light and obey it
-                    pass
+                    self.logger.info('light %s use: %d', lightid, 
+                                     message_parts[3])
+                    # TODO: Turn on the light if I'm told to use it
                 elif lightcmd == 'singlechange':
                     """
                     NOTE: I ignore this command as Hue lights will always
                           transition over time
                     """
-                    pass
+                    self.logger.info('light %s singlechange', lightid)
         elif cmd == 'sync':
             """
             Send synchronised signal to HueLights to tell
@@ -168,7 +180,10 @@ class BobHueRequestHandler(socketserver.StreamRequestHandler):
                   as I know MrMC always sends a sync.
             Should be sent after each bulk set.
             """
-            # TODO: signal to the light.update function a new set of updates
+            self.logger.debug('sync')
+        else:
+            # If we get here then we do not recognise the command
+            self.logger.info('Unrecognised command: %r', message_parts)
 
         # Join all the responses into a single string seperated by
         # carriage returs and terminated in a carriage return
