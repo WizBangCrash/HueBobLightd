@@ -14,7 +14,7 @@ from time import sleep
 from threading import Lock
 from urllib.request import urlopen, URLError
 import requests
-from BobHueLights.colorconvert import Converter, GamutA, GamutB, GamutC
+from HueBobLightd.colorconvert import Converter, GamutA, GamutB, GamutC
 
 
 """
@@ -54,33 +54,31 @@ class HueRequest():
             return False
 
     @classmethod
-    def put_response(cls, resp, *args, **kwargs):
-        """ Asynchronous response to the put requests """
-        #pylint: disable=W0613
-        if resp.ok:
-            cls.logger.debug('Change: %s', resp.json())
-        else:
-            cls.logger.debug('Change Error: %s', resp.text)
-
-    @classmethod
     def put(cls, name, state, timeout=1):
         """
         Send a PUT request to the specified light
         I use a short timeout on the request because if the bridge is too
         busy to handle it in that time the state would have changed anyway
-        I send the request asynchronously i.e. not waiting for the response,
-        as I do not want to hold up the other lights requests.
         """
+        result = True
         url = '{}/lights/{}/state'.format(cls.url, name)
         cls.logger.debug('PUT: %s : %r', url, state)
         try:
-            requests.put(url=url, json=state,
-                         hooks={'response' : cls.put_response},
-                         timeout=timeout)
+            resp = requests.put(url=url, json=state, timeout=timeout)
+            #pylint: disable=W0613
+            if resp.ok:
+                cls.logger.debug('Response: %s', resp.json())
+            else:
+                cls.logger.debug('Response Error: %s', resp.text)
+                result = False
         except requests.exceptions.Timeout:
             cls.logger.info('Timeout error for url: %s', url)
+            result = False
         except requests.exceptions.ConnectionError:
             cls.logger.info('ConnectionError error for url: %s', url)
+            result = False
+
+        return result            
 
 class HueLight():
     """
@@ -208,9 +206,9 @@ class HueLight():
             state['xy'] = [*self.xy_new]
 
         # Send the update to the light
-        HueRequest.put(self.hue_id, state)
-        # TODO: only update xy_previous if the request was successful
-        self.xy_previous = self.xy_new
+        # Only update xy_previous if the update request was successful
+        if HueRequest.put(self.hue_id, state):
+            self.xy_previous = self.xy_new
 
 
 class HueUpdate():
@@ -232,10 +230,12 @@ class HueUpdate():
 
     def connect(self):
         """ Connect to the Hue bridge """
-        # TODO: Look at how we add a connection timeout to the PUT and handle it
+        return HueRequest.connect()
+
+    def initialise(self):
+        """ Get the update loop to re-initialise the lights """
         for light in self.lights:
             light.turn_on()
-        return True
 
     def shutdown(self):
         """ Turn off the light and disconnect from the bridge """
@@ -244,9 +244,19 @@ class HueUpdate():
 
     def update_forever(self):
         """
-        Take a snapshot of the current light colours and send
-        an update to the Hue Bridge if any have changed
+        Main loop for updating the lights
+        Handles connecting to the bridge, turning on the lights and
+        sending the colour updates
         """
+        while not self.connect():
+            self.logger.error('Failed to connect to hue bridge. Retrying...')
+            sleep(1)
+        self.logger.info('Connection established to hue bridge')
+
+        self.initialise()
+        self.logger.info('Lights have been turned on')
+
+        # Main loop for continually updaing the lights
         while True:
             sleep(0.3)
             for light in self.lights:

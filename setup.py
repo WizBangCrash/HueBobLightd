@@ -16,7 +16,7 @@ with open(path.join(HERE, 'README.rst'), encoding='utf-8') as f:
     LONG_DESCRIPTION = f.read()
 
 setup(
-    name='BobHueLights',
+    name='HueBobLightd',
     # Versions should comply with PEP440.  For a discussion on single-sourcing
     # the version across setup.py and the project code, see
     # https://packaging.python.org/en/latest/single_source_version.html
@@ -42,7 +42,7 @@ setup(
         'License :: MIT Approved :: OpenSource',
         # Specify the Python versions you support here. In particular, ensure
         # that you indicate whether you support Python 2, Python 3 or both.
-        'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.5',
     ],
     keywords='boblightd philips-hue led tv',
     # You can just specify the packages manually here if your project is
@@ -82,8 +82,8 @@ setup(
     # pip to create the appropriate form of executable for the target platform.
     entry_points={
         'console_scripts': [
-            'bobhuelightd=BobHueLights.bobhuelightd:main',
-            'lighteffects=BobHueLights.lighteffects:main',
+            'hueboblightd=HueBobLightd.hueboblightd:main',
+            'lighteffects=HueBobLightd.lighteffects:main',
         ],
     },
     zip_safe=True,

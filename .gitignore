@@ -16,7 +16,7 @@ _pycache_/
 .DS_Store
 
 # Other
-bobhuelightd.conf
+hueboblightd.conf
 *.log
 *.log.*
 # Project
