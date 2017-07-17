@@ -51,7 +51,7 @@ def main():
         logfile = '{}/hueboblightd.log'.format(args.logdir)
     else:
         logfile = '{}/hueboblightd.log'.format(os.getcwd())
-    init_logger(logfile, args.debug)
+    init_logger(logfile, backups=4, debug=args.debug)
     # init_logger('hueboblightd.log', True)
     logger = logging.getLogger('hueboblightd')
     logger.info('Started: version %s', __version__)
@@ -93,24 +93,28 @@ def main():
     # Store the HueLight array as data in the server for the requesthandler
     server.data = lights
 
-    # Create a HueUpdate thread
-    logger.info('Starting lights update thread')
-    hue_thread = Thread(target=hue_updater.update_forever)
-    hue_thread.setDaemon(True)  # don't hang on exit
-    hue_thread.start()
+    try:
+        # Create a HueUpdate thread
+        logger.info('Starting lights update thread')
+        hue_thread = Thread(target=hue_updater.update_forever)
+        hue_thread.setDaemon(True)  # don't hang on exit
+        hue_thread.start()
 
-    # Start the server in a thread
-    logger.info('Starting server update thread: %r', server.server_address)
-    server_thread = Thread(target=server.serve_forever)
-    server_thread.setDaemon(True)  # don't hang on exit
-    server_thread.start()
-    server_thread.join()
+        # Start the server in a thread
+        logger.info('Starting server update thread: %r', server.server_address)
+        server_thread = Thread(target=server.serve_forever)
+        server_thread.setDaemon(True)  # don't hang on exit
+        server_thread.start()
 
-    # Clean up
-    hue_updater.shutdown()
-    server.shutdown()
-    logger.debug('done')
-    server.socket.close()
+        # Go to sleep and wait for server thread to complete
+        server_thread.join()
+
+    except KeyboardInterrupt:
+        # Clean up
+        hue_updater.shutdown()
+        hue_thread.join()
+        server.shutdown()
+        server.socket.close()        # cleanup
 
     logger.info('Exiting...')
 

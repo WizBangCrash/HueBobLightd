@@ -223,6 +223,7 @@ class HueUpdate():
         Initialise the updater thread:
             lights: List of HueLight objects
         """
+        self.keep_running = True
         if type(self).logger is None:
             type(self).logger = logging.getLogger('HueUpdate')
         self.lights = lights
@@ -230,15 +231,19 @@ class HueUpdate():
 
     def connect(self):
         """ Connect to the Hue bridge """
+        self.logger.debug('Connect called')
         return HueRequest.connect()
 
     def initialise(self):
         """ Get the update loop to re-initialise the lights """
+        self.logger.debug('Initialise called')
         for light in self.lights:
             light.turn_on()
 
     def shutdown(self):
         """ Turn off the light and disconnect from the bridge """
+        self.logger.info('Shutdown called')
+        self.keep_running = False
         for light in self.lights:
             light.turn_off()
 
@@ -250,6 +255,8 @@ class HueUpdate():
         """
         while not self.connect():
             self.logger.error('Failed to connect to hue bridge. Retrying...')
+            if not self.keep_running:
+                return
             sleep(1)
         self.logger.info('Connection established to hue bridge')
 
@@ -257,7 +264,9 @@ class HueUpdate():
         self.logger.info('Lights have been turned on')
 
         # Main loop for continually updaing the lights
-        while True:
+        while self.keep_running:
             sleep(0.3)
             for light in self.lights:
                 light.update()
+
+        self.logger.debug('update_forever exiting')
