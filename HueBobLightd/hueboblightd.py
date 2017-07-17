@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-bobhuelightd
-This module contains main daemon for the bobhuelightd server
+hueboblightd
+This module contains main daemon for the hueboblightd server
 """
 
 __author__ = "David Dix"
@@ -12,11 +12,11 @@ import logging
 import argparse
 import socket
 from threading import Thread
-from BobHueLights.logger import init_logger
-from BobHueLights.config import BobHueConfig
-from BobHueLights.server import BobHueServer
-from BobHueLights.server import BobHueRequestHandler
-from BobHueLights.huelights import HueRequest, HueLight, HueUpdate
+from HueBobLightd.logger import init_logger
+from HueBobLightd.config import BobHueConfig
+from HueBobLightd.server import BobHueServer
+from HueBobLightd.server import BobHueRequestHandler
+from HueBobLightd.huelights import HueRequest, HueLight, HueUpdate
 from pkg_resources import get_distribution
 from pkg_resources import DistributionNotFound, RequirementParseError
 
@@ -48,12 +48,12 @@ def main():
 
     # Initialise the logger
     if args.logdir:
-        logfile = '{}/bobhuelightd.log'.format(args.logdir)
+        logfile = '{}/hueboblightd.log'.format(args.logdir)
     else:
-        logfile = '{}/bobhuelightd.log'.format(os.getcwd())
+        logfile = '{}/hueboblightd.log'.format(os.getcwd())
     init_logger(logfile, args.debug)
-    # init_logger('bobhuelightd.log', True)
-    logger = logging.getLogger('bobhuelightd')
+    # init_logger('hueboblightd.log', True)
+    logger = logging.getLogger('hueboblightd')
     logger.info('Started: version %s', __version__)
 
     # Load the configuration file
@@ -63,12 +63,8 @@ def main():
     if not conf.validate():
         exit(-1)
 
-    # Initialise the lights
+    # Initialise the bridge address and username
     HueRequest(conf.bridge_address, conf.username)
-    if not HueRequest.connect():
-        logger.error('Unable to connect to bridge at address "%s"',
-                     conf.bridge_address)
-        exit(-1)
 
     lights = list()
     lights_conf = conf.get_parameter("lights")
@@ -83,17 +79,8 @@ def main():
     for light in lights:
         logger.info('HueLight: %r', light)
 
-    # Create a HueUpdate thread
-    # TODO: Remove HueUpdate and just create a function in this
-    #       file to update the lights
-    logger.info('Starting lights update thread')
+    # Create the light updater object
     hue_updater = HueUpdate(lights)
-    if not hue_updater.connect():
-        logger.critical('Could not connect to Hue Bridge')
-        exit(-1)
-    hue_thread = Thread(target=hue_updater.update_forever)
-    hue_thread.setDaemon(True)  # don't hang on exit
-    hue_thread.start()
 
     # Create the server
     if args.server:
@@ -105,6 +92,12 @@ def main():
     server = BobHueServer(address, BobHueRequestHandler)
     # Store the HueLight array as data in the server for the requesthandler
     server.data = lights
+
+    # Create a HueUpdate thread
+    logger.info('Starting lights update thread')
+    hue_thread = Thread(target=hue_updater.update_forever)
+    hue_thread.setDaemon(True)  # don't hang on exit
+    hue_thread.start()
 
     # Start the server in a thread
     logger.info('Starting server update thread: %r', server.server_address)
@@ -123,6 +116,15 @@ def main():
 
     return
 
+"""
+TODO:
+Implement signals
+Main thread recieves a signal for the following:
+    Re-read the conf and apply it
+        This can be done by re-intialising the HueRequest and HueLight objects
+        Would need to restart the server if the port changed
+    Stop the daemon
+"""
 
 # When running as a script we should call main
 if __name__ == '__main__':

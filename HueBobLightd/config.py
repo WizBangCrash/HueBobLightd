@@ -72,7 +72,7 @@ class ConfigParser():
         # Use a default file if none supplied
         # TODO: If a file is provided look for it in CWD and other common places
         if cfgfile is None:
-            cfgfile = '{}/bobhuelightd.conf'.format(os.getcwd())
+            cfgfile = '{}/hueboblightd.conf'.format(os.getcwd())
         self.logger.debug('Reading %s', cfgfile)
         if os.path.isfile(cfgfile):
             with open(cfgfile, 'r') as jsonfile:

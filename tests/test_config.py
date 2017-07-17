@@ -9,7 +9,7 @@ __copyright__ = "Copyright 2017, David Dix"
 import os
 import pytest
 import mock
-from BobHueLights.config import BobHueConfig
+from HueBobLightd.config import BobHueConfig
 
 # Globals
 BASEDIR = os.path.realpath(os.path.dirname(__file__))
@@ -24,7 +24,7 @@ class TestHueConfig():
 
     def test_read_good_file(self):
         """ Read in a good config file and check all the values """
-        assert self.config.read_config('{}/data/bobhuelightd-good.conf'
+        assert self.config.read_config('{}/data/hueboblightd-good.conf'
                                        .format(BASEDIR))
 
         assert self.config.bridge_address == '192.168.1.1'
@@ -36,14 +36,14 @@ class TestHueConfig():
         assert lights['2'] == (50, 100, 0, 30)
 
     def test_read_file_extra_commas(self):
-        """ REad a conf file with trailing commas """
-        assert self.config.read_config('{}/data/bobhuelightd-commas.conf'
+        """ Read a conf file with trailing commas """
+        assert self.config.read_config('{}/data/hueboblightd-commas.conf'
                                        .format(BASEDIR))
 
     def test_read_bad_file(self):
         """ Read a bad config file and check it gives correct errors """
         assert not self.config.read_config('{}/data/bad.conf'.format(BASEDIR))
 
-        assert self.config.read_config('{}/data/bobhuelightd-bad.conf'
+        assert self.config.read_config('{}/data/hueboblightd-bad.conf'
                                        .format(BASEDIR))
         assert not self.config.validate()
