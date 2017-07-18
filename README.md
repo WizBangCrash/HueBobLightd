@@ -23,7 +23,7 @@ It's an early stage implementation, but it works. Feel free to try.
 
 ## Supported Platforms
 Written in Python with the aim to support as many platforms as possible.
-Has currenlty been tested on; macOS, Windows 7 & 10, Synology DSM 6.1
+Has currently been tested on; macOS, Windows 7 & 10, Synology DSM 6.1
 
 ## Installation
 - Requires Python3 and PIP to be installed
@@ -35,3 +35,66 @@ Has currenlty been tested on; macOS, Windows 7 & 10, Synology DSM 6.1
 ### Installation on Synology DSM
 The hueboblightd server can be installed an run from a Synology DSM.
 Follow the notes and instructions in the _synology_ directory.
+
+# Configuration File
+The configuration file is a bit simpler than the standard boblightd.conf as there
+are less options supported by the Hue lights.
+
+'''json
+{
+    /// Socket server details
+    ///     port: port number the server will listen on
+    ///     address: (optional) IPv4 address the server will listen on
+    "server" : {
+        "port" : 19333
+    },
+
+    /// Details of the Hue Bridge
+    ///     name: Friendly name used by software for log messages
+    ///     address: Domain name or ip address of Bridge
+    ///     username: A pre-authorised user name for accessing the Bridge
+    ///         For details on creating a user see:
+    ///         https://www.developers.meethue.com/documentation/getting-started
+    "hueBridge" : {
+        "name" : "MyHueBridge",
+        "address" : "192.168.1.1",
+        "username" : "<hue bridge pre-authorised user name>"
+    },
+    /*
+        lights : An array of Hue lights and the screen coordinates they cover
+            id : Hur Bridge light id
+            name : Hue light name
+            gamut : (optional) gamut of light e.g. GamutA, GamutB or GamutC
+            hscan : left and right values expressed as a percentage
+            vscan : top and bottom values expressed as a percentage
+        e.g. A light that covers the bottom right quadrant of the display:
+            "name" : "right",
+            "gamut" : "GamutC"
+            "hscan" : { "left" : 50, "right" : 100 },
+            "vscan" : { "top" : 50, "bottom" : 100 }
+    */
+    "lights" : [
+        {
+            "id" : "1",
+            "name" : "RightLight",
+            "gamut" : "GamutA",
+            "hscan" : { "left" : 75, "right" : 100 },
+            "vscan" : { "top" : 65, "bottom" : 100 }
+        },
+        {
+            "id" : "2",
+            "name" : "LeftLight",
+            "gamut" : "GamutA",
+            "hscan" : { "left" : 0, "right" : 25 },
+            "vscan" : { "top" : 65, "bottom" : 100 }
+        },
+        {
+            "id" : "7",
+            "name" : "StripLight",
+            "gamut" : "GamutC",
+            "hscan" : { "left" : 0, "right" : 100 },
+            "vscan" : { "top" : 0, "bottom" : 20 }
+        }
+    ]
+}
+'''
