@@ -39,7 +39,11 @@ Follow the notes and instructions in the _synology_ directory.
 The configuration file is a bit simpler than the standard boblightd.conf as there
 are less options supported by the Hue lights.
 
+<<<<<<< HEAD
 ``` json
+=======
+'''json
+>>>>>>> c4e3f90414f2b7309e8158565c72683e32d08173
 {
     /// Socket server details
     ///     port: port number the server will listen on
@@ -96,4 +100,8 @@ are less options supported by the Hue lights.
         }
     ]
 }
+<<<<<<< HEAD
 ```
+=======
+'''
+>>>>>>> c4e3f90414f2b7309e8158565c72683e32d08173
