@@ -2,12 +2,12 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "bobhuelightd",
+            "name": "hueboblightd",
             "type": "python",
             "request": "launch",
             "stopOnEntry": false,
             "pythonPath": "${config:python.pythonPath}",
-            "program": "${workspaceRoot}/BobHueLights/bobhuelightd.py",
+            "program": "${workspaceRoot}/HueBobLightd/hueboblightd.py",
             "cwd": "${workspaceRoot}",
             "env": {},
             "envFile": "${workspaceRoot}/.env",

@@ -7,7 +7,7 @@ Install the official Python 3 module in the packages program.
     * wget https://raw.github.com/pypa/pip/master/contrib/get-pip.py
 * run: sudo python3 get-pip.py
 
-## o create an automatic startup script:
+## To create an automatic startup script:
 * Copy the hueboblight.sh script to "/usr/local/etc/rc.d/"
 * Set the file permission to 755
    * sudo chwon 755 /usr/local/etc/rc.d/hueboblightd.sh

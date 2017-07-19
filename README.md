@@ -15,10 +15,23 @@ It's an early stage implementation, but it works. Feel free to try.
 ## Features
 
 - Configurable port (default: 19333)
-- Support for full range of Hue Lights
-- Support for Hue light gamuts
+- Support for full range of hue Lights
+- Support for hue light gamuts
 - Multi-threaded
-- Manages Hue Bridge HTTP request limitations
+- Manages hue Bridge HTTP request limitations
+- Ability to set light transition time and default brightness
+- Ability to restart re-read config file without restarting server
+
+## Changes
+
+* 17th July 2017: v1.0.2 - Initial GitHub release
+* 22nd July 2017: v1.1.0
+  * Refactoring to improve code structure
+  * SIGHUP signal support to re-read configuration file
+  * Lights are validated and ignored if not present on bridge
+  * Support for multiple hue bridges 
+  * Optional initial "brightness" parameter added
+  * Optional "transitiontime" parameter added
 
 ## Supported Platforms
 Written in Python with the aim to support as many platforms as possible.
@@ -26,10 +39,10 @@ Has currently been tested on; macOS, Windows 7 & 10, Synology DSM 6.1
 
 ## Installation
 - Requires Python3 and PIP to be installed
-- Requires an authorised Hue Bridge username
+- Requires an authorised hue Bridge username
 - A python _wheel_ package can be found in the release directory
   - Install using "pip3 install HueBobLightd"
-  - *OR* clone the respository and do do you own thing
+  - *OR* clone the respository and do do your own thing
 
 ### Installation on Synology DSM
 The hueboblightd server can be installed an run from a Synology DSM.
@@ -37,7 +50,9 @@ Follow the notes and instructions in the _synology_ directory.
 
 # Configuration File
 The configuration file is a bit simpler than the standard boblightd.conf as there
-are less options supported by the Hue lights.
+are less options supported by the hue lights.
+The configuration supports multiple hue bridges for those with _mega_ hue
+light networls :-)
 
 ``` javascript
 {
@@ -48,52 +63,69 @@ are less options supported by the Hue lights.
         "port" : 19333
     },
 
+    /// Tranistion time:
+    /// Philips hue lights need time to transition from 1 color
+    /// to the next. Here you can choose how long in multiples of 100ms
+    /// Valida values: 1 to 10 (default: 3)
+    "transitiontime" : 3,
+
     /// Details of the Hue Bridge
     ///     name: Friendly name used by software for log messages
     ///     address: Domain name or ip address of Bridge
     ///     username: A pre-authorised user name for accessing the Bridge
     ///         For details on creating a user see:
     ///         https://www.developers.meethue.com/documentation/getting-started
-    "hueBridge" : {
-        "name" : "MyHueBridge",
-        "address" : "192.168.1.1",
-        "username" : "<hue bridge pre-authorised user name>"
-    },
-    /*
-        lights : An array of Hue lights and the screen coordinates they cover
-            id : Hur Bridge light id
-            name : Hue light name
-            gamut : (optional) gamut of light e.g. GamutA, GamutB or GamutC
-            hscan : left and right values expressed as a percentage
-            vscan : top and bottom values expressed as a percentage
-        e.g. A light that covers the bottom right quadrant of the display:
-            "name" : "right",
-            "gamut" : "GamutC"
-            "hscan" : { "left" : 50, "right" : 100 },
-            "vscan" : { "top" : 50, "bottom" : 100 }
-    */
-    "lights" : [
+    /// bridges is a list of available bridges and the lights assciated with each
+    ///
+    "bridges" : [
         {
-            "id" : "1",
-            "name" : "RightLight",
-            "gamut" : "GamutA",
-            "hscan" : { "left" : 75, "right" : 100 },
-            "vscan" : { "top" : 65, "bottom" : 100 }
-        },
-        {
-            "id" : "2",
-            "name" : "LeftLight",
-            "gamut" : "GamutA",
-            "hscan" : { "left" : 0, "right" : 25 },
-            "vscan" : { "top" : 65, "bottom" : 100 }
-        },
-        {
-            "id" : "7",
-            "name" : "StripLight",
-            "gamut" : "GamutC",
-            "hscan" : { "left" : 0, "right" : 100 },
-            "vscan" : { "top" : 0, "bottom" : 20 }
+            "name" : "MyHueBridge",
+            "address" : "192.168.1.1",
+            "username" : "<hue bridge pre-authorised user name>",
+            ///
+            ///    lights : An array of Hue lights & their screen coordinates
+            ///        id : Hur Bridge light id
+            ///        name : Hue light name
+            ///        gamut : (optional) gamut of light e.g. GamutA, GamutB or GamutC
+            ///        brightness : Brightness value: 1-254 (default: 150)
+            ///        hscan : left and right values expressed as a percentage
+            ///        vscan : top and bottom values expressed as a percentage
+            ///    e.g. A light that covers the bottom right quadrant of the display:
+            ///        "name" : "right",
+            ///        "gamut" : "GamutC"
+            ///        "hscan" : { "left" : 50, "right" : 100 },
+            ///        "vscan" : { "top" : 50, "bottom" : 100 }
+            ///
+            "lights" : [
+                {
+                    "id" : "1",
+                    "name" : "RightLight",
+                    "gamut" : "GamutA",
+                    "brightness" : 100,
+                    "hscan" : { "left" : 75, "right" : 100 },
+                    "vscan" : { "top" : 50, "bottom" : 100 }
+                },
+                {
+                    "id" : "2",
+                    "name" : "LeftLight",
+                    "gamut" : "GamutA",
+                    "hscan" : { "left" : 0, "right" : 25 },
+                    "vscan" : { "top" : 50, "bottom" : 100 }
+                },
+                {
+                    "id" : "7",
+                    "name" : "StripLight",
+                    "gamut" : "GamutC",
+                    "brightness" : 100,
+                    "hscan" : { "left" : 25, "right" : 75 },
+                    "vscan" : { "top" : 25, "bottom" : 75 }
+                }
+            ]
         }
     ]
 }
 ```
+
+## License
+
+[MIT](https://github.com/yhirose/vscode-filtertext/blob/master/LICENSE)

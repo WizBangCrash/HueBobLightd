@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 """
-cls
+HueLight
 This module contains a class for managing the lights associated with
 the server, taking the updates from the client and ensuring the light's
 state is kept up to date.
+Also includes a class for updating the lights via requests
 """
 
 __author__ = "David Dix"
 __copyright__ = "Copyright 2017, David Dix"
 
 import logging
-from time import sleep
 from threading import Lock
 from urllib.request import urlopen, URLError
 import requests
@@ -32,57 +32,9 @@ light than to ensure all lights are in sync with "old" values.
 """
 
 
-class HueRequest():
-    """ Class to send http requests to the hue bridge """
-    #pylint: disable=R0903
-    logger = None
-    url = None
-
-    @classmethod
-    def __init__(cls, bridge, username):
-        if cls.logger is None:
-            cls.logger = logging.getLogger('HueLight')
-        cls.url = 'http://{}/api/{}'.format(bridge, username)
-
-    @classmethod
-    def connect(cls):
-        """ Attempt to connect to the bridge and return true if successful """
-        try:
-            urlopen(cls.url, timeout=1)
-            return True
-        except URLError:
-            return False
-
-    @classmethod
-    def put(cls, name, state, timeout=1):
-        """
-        Send a PUT request to the specified light
-        I use a short timeout on the request because if the bridge is too
-        busy to handle it in that time the state would have changed anyway
-        """
-        result = True
-        url = '{}/lights/{}/state'.format(cls.url, name)
-        cls.logger.debug('PUT: %s : %r', url, state)
-        try:
-            resp = requests.put(url=url, json=state, timeout=timeout)
-            #pylint: disable=W0613
-            if resp.ok:
-                cls.logger.debug('Response: %s', resp.json())
-            else:
-                cls.logger.debug('Response Error: %s', resp.text)
-                result = False
-        except requests.exceptions.Timeout:
-            cls.logger.info('Timeout error for url: %s', url)
-            result = False
-        except requests.exceptions.ConnectionError:
-            cls.logger.info('ConnectionError error for url: %s', url)
-            result = False
-
-        return result            
-
 class HueLight():
     """
-    cls class
+    HueLight class
     Attributes:
         url: url of light (bridge, username portion) NEEDS TO BE in request class
         hue_id: Hue id of light
@@ -94,38 +46,38 @@ class HueLight():
         xy_previous: int tuple(hue, sat, bri) last color
         in_use: on / off
         lock: lock for accessing rgb member
-    Methods:
-        on: Turn on light
-        off: turn off light
-        set_color: new rgb values
-        update: send request to bridge
-            transistion_time = 3,
-            alert = None
-            effect = None
     """
     logger = None
 
     #pylint: disable=R0913
-    def __init__(self, name, hue_id, left, right, top, bottom, gamut=GamutC):
+    def __init__(self, address, name, hue_id, left, right, top, bottom, brightness, gamut=GamutC):
         if type(self).logger is None:
             type(self).logger = logging.getLogger('HueLight')
         self.lock = Lock()
+        self.url = 'http://{}/api/{}'.format(address[0], address[1])
         self.hue_id = hue_id
         self.name = name
+        self.brightness = brightness
         self.scanarea = (top, bottom, left, right)
         self.in_use = False
-        self.converter = Converter(self.convert_gamut(gamut))
+        self.converter = Converter(self._convert_gamut(gamut))
         self.rgb = (0.0, 0.0, 0.0)
         self.xy_new = (0, 0)
         self.xy_previous = (0, 0)
+        self.logger.debug('Light: bridge(%r) id(%s) name(%s) created',
+                          address[0],
+                          self.hue_id,
+                          self.name)
 
     def __repr__(self):
-        return '{}, {}, ({:d}, {:d}, {:d}, {:d})'.format(self.hue_id,
-                                                         self.name,
-                                                         *self.scanarea)
+        return '{} {}, {}, ({:d}, {:d}, {:d}, {:d}), {:d}'.format(self.url,
+                                                                  self.hue_id,
+                                                                  self.name,
+                                                                  *self.scanarea,
+                                                                  self.brightness)
 
     @staticmethod
-    def convert_gamut(gamut):
+    def _convert_gamut(gamut):
         """ Turn the gamut string into a gamut object """
         # Default is GamutC
         if gamut == 'GamutA':
@@ -136,6 +88,69 @@ class HueLight():
             result = GamutC
         return result
 
+    def _put(self, state, timeout=1):
+        """
+        Send a PUT request to the specified light
+        I use a short timeout on the request because if the bridge is too
+        busy to handle it in that time the state would have changed anyway
+        """
+        result = True
+        url = '{}/lights/{}/state'.format(self.url, self.hue_id)
+        self.logger.debug('PUT: %s : %r', url, state)
+        try:
+            resp = requests.put(url=url, json=state, timeout=timeout)
+            #pylint: disable=W0613
+            if resp.ok:
+                self.logger.debug('Response: %s', resp.json())
+            else:
+                self.logger.debug('Response Error: %s', resp.text)
+                result = False
+        except requests.exceptions.Timeout:
+            self.logger.info('Timeout error for url: %s', url)
+            result = False
+        except requests.exceptions.ConnectionError:
+            self.logger.info('ConnectionError error for url: %s', url)
+            result = False
+
+        return result
+
+    def _attributes(self, timeout=1):
+        """
+        Send a GET Attributes request to the bridge for the specified light
+        Return the response as a dcitionary
+        """
+        self.logger.debug('Get attributes: id(%s), name(%s)',
+                          self.name, self.hue_id)
+        result = None
+        url = '{}/lights/{}'.format(self.url, self.hue_id)
+        self.logger.debug('GET: %s', url)
+        try:
+            resp = requests.get(url=url, timeout=timeout)
+            if resp.ok:
+                result = resp.json()
+                self.logger.debug('Response: %s', result)
+            else:
+                self.logger.debug('Response Error: %s', resp.text)
+        except requests.exceptions.Timeout:
+            self.logger.info('Timeout error for url: %s', url)
+        except requests.exceptions.ConnectionError:
+            self.logger.info('ConnectionError error for url: %s', url)
+
+        return result
+
+    def connect(self):
+        """ Attempt to connect to the bridge and return true if successful """
+        try:
+            urlopen(self.url, timeout=1)
+            return True
+        except URLError:
+            return False
+
+    def validate(self):
+        """ Verify with the bridge that this light exists """
+        self.in_use = 'state' in self._attributes()
+        return self.in_use
+
     def turn_on(self):
         """ Turn on the light """
         self.in_use = True
@@ -143,11 +158,13 @@ class HueLight():
         state = {
             'on' : True,
             'xy' : [*self.xy_new],
+            'bri' : self.brightness,
             'alert' : 'select'
         }
         # Send the update to the light
-        HueLight.logger.debug('Turn on light: "%s"', self.hue_id)
-        HueRequest.put(self.hue_id, state, timeout=1)
+        self.logger.debug('Turn on light: id(%s), name(%s)',
+                          self.hue_id, self.name)
+        self._put(state, timeout=1)
 
     def turn_off(self):
         """ Turn off the light """
@@ -156,8 +173,9 @@ class HueLight():
             'on' : False,
         }
         # Send the update to the light
-        HueLight.logger.debug('Turn off light: "%s"', self.hue_id)
-        HueRequest.put(self.hue_id, state)
+        self.logger.debug('Turn off light: id(%s), name(%s)',
+                          self.hue_id, self.name)
+        self._put(state)
 
     def set_color(self, red, green, blue):
         """
@@ -171,7 +189,7 @@ class HueLight():
         """
         with self.lock:
             self.rgb = (red, green, blue)
-        HueLight.logger.debug('Set light(%s) color: %r', self.hue_id, self.rgb)
+        self.logger.debug('Set light(%s) color: %r', self.hue_id, self.rgb)
 
     def update(self, transition_time=3):
         """
@@ -186,87 +204,25 @@ class HueLight():
         # Convert the rbg to hsv
         with self.lock:
             self.xy_new = self.converter.rgb_to_xy(*self.rgb)
-        if self.xy_new == self.xy_previous:
-            # Color hasn't changed. Nothing to do, so return
-            HueLight.logger.debug('Light(%s) color has not changed: '
-                                  'RGB:%r, XY:%r == %r',
-                                  self.hue_id,
-                                  self.rgb,
-                                  self.xy_previous, self.xy_new)
-            return
-
-        # Colour has changed so build a command to send to the bridge
-        HueLight.logger.debug('Light(%s) changed: RGB:%r, XY:%r -> %r',
+        if self.xy_new != self.xy_previous:
+            # Colour has changed so build a command to send to the bridge
+            self.logger.debug('Light(%s) changed: RGB:%r, XY:%r -> %r',
                               self.hue_id, self.rgb,
                               self.xy_previous, self.xy_new)
-        state = {
-            'transitiontime' : transition_time
-        }
-        if self.xy_new != self.xy_previous:
-            state['xy'] = [*self.xy_new]
+            state = {
+                'transitiontime' : transition_time
+            }
+            if self.xy_new != self.xy_previous:
+                state['xy'] = [*self.xy_new]
 
-        # Send the update to the light
-        # Only update xy_previous if the update request was successful
-        if HueRequest.put(self.hue_id, state):
-            self.xy_previous = self.xy_new
-
-
-class HueUpdate():
-    """
-    Class for connecting to the Hue bridge and updating the
-    configured lights as fast as the bridge will allow
-    """
-    logger = None
-
-    def __init__(self, lights):
-        """
-        Initialise the updater thread:
-            lights: List of HueLight objects
-        """
-        self.keep_running = True
-        if type(self).logger is None:
-            type(self).logger = logging.getLogger('HueUpdate')
-        self.lights = lights
-        HueUpdate.logger.debug('Initialised with %d lights', len(lights))
-
-    def connect(self):
-        """ Connect to the Hue bridge """
-        self.logger.debug('Connect called')
-        return HueRequest.connect()
-
-    def initialise(self):
-        """ Get the update loop to re-initialise the lights """
-        self.logger.debug('Initialise called')
-        for light in self.lights:
-            light.turn_on()
-
-    def shutdown(self):
-        """ Turn off the light and disconnect from the bridge """
-        self.logger.info('Shutdown called')
-        self.keep_running = False
-        for light in self.lights:
-            light.turn_off()
-
-    def update_forever(self):
-        """
-        Main loop for updating the lights
-        Handles connecting to the bridge, turning on the lights and
-        sending the colour updates
-        """
-        while not self.connect():
-            self.logger.error('Failed to connect to hue bridge. Retrying...')
-            if not self.keep_running:
-                return
-            sleep(1)
-        self.logger.info('Connection established to hue bridge')
-
-        self.initialise()
-        self.logger.info('Lights have been turned on')
-
-        # Main loop for continually updaing the lights
-        while self.keep_running:
-            sleep(0.3)
-            for light in self.lights:
-                light.update()
-
-        self.logger.debug('update_forever exiting')
+            # Send the update to the light
+            # Only update xy_previous if the update request was successful
+            if self._put(state):
+                self.xy_previous = self.xy_new
+        # else:
+        #     # Color hasn't changed
+        #     self.logger.debug('Light(%s) color has not changed: '
+        #                       'RGB:%r, XY:%r == %r',
+        #                       self.hue_id,
+        #                       self.rgb,
+        #                       self.xy_previous, self.xy_new)

@@ -41,8 +41,8 @@ class BobHueRequestHandler(socketserver.StreamRequestHandler):
                     # Send the response
                     self.logger.debug('TX [%s]: %s', self.client_address[0], response)
                     self.wfile.write(response.encode())
-        except Exception as e:
-            self.logger.error('ER [%s]: %r', self.client_address[0], e)
+        except Exception as exc:
+            self.logger.error('ER [%s]: %r', self.client_address[0], exc)
             raise
         self.logger.debug('DC [%s]: disconnected', self.client_address[0])
 
@@ -111,8 +111,7 @@ class BobHueRequestHandler(socketserver.StreamRequestHandler):
                 Change the client priority, from 0 to 255, default is 128.
                 The highest priority is the lowest number
                 """
-                self.logger.info('priority: %d', message_parts[2])
-                pass
+                self.logger.info('priority: %d', int(message_parts[2]))
             if subcmd == 'light':
                 """
                 Commands to control what to do with the lights
@@ -126,9 +125,9 @@ class BobHueRequestHandler(socketserver.StreamRequestHandler):
                     set light right rgb 0.000000 0.000000 0.000000
                     """
                     self.logger.debug('light %s rgb: %f, %f, %f', lightid,
-                                       message_parts[4],
-                                       message_parts[5],
-                                       message_parts[6])
+                                      float(message_parts[4]),
+                                      float(message_parts[5]),
+                                      float(message_parts[6]))
                     if len(message_parts) == 7:
                         light = next((x for x in lights if x.hue_id == lightid), None)
                         if light:
@@ -144,7 +143,7 @@ class BobHueRequestHandler(socketserver.StreamRequestHandler):
                           this command
                     """
                     self.logger.info('light %s speed: %f', lightid,
-                                     message_parts[3])
+                                     float(message_parts[4]))
                 elif lightcmd == 'interpolation':
                     """
                     Enable or disable color interpolation between 2 steps.
@@ -153,8 +152,8 @@ class BobHueRequestHandler(socketserver.StreamRequestHandler):
                     NOTE: I ignore this command as Hue lights will always
                           interpolate
                     """
-                    self.logger.info('light %s nterpolation: %d', lightid,
-                                     message_parts[3])
+                    self.logger.info('light %s interpolation: %d', lightid,
+                                     int(message_parts[4]))
                 elif lightcmd == 'use':
                     """
                     Declare whether a light is used.
@@ -162,8 +161,8 @@ class BobHueRequestHandler(socketserver.StreamRequestHandler):
                     Any color change request for an unused light
                     will be ignored.
                     """
-                    self.logger.info('light %s use: %d', lightid, 
-                                     message_parts[3])
+                    self.logger.info('light %s use: %d', lightid,
+                                     int(message_parts[4]))
                     # TODO: Turn on the light if I'm told to use it
                 elif lightcmd == 'singlechange':
                     """

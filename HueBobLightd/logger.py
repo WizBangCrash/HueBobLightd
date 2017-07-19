@@ -24,7 +24,7 @@ def init_logger(filename, debug, backups=2):
     need_roll = os.path.isfile(filename)
     logger = logging.getLogger()
     logger.setLevel(loglevel)
-    file_fmt = logging.Formatter('%(asctime)s.%(msecs)d [%(levelname)s] '
+    file_fmt = logging.Formatter('%(asctime)s.%(msecs)03d [%(levelname)s] '
                                  '%(name)s %(funcName)s: %(message)s',
                                  datefmt='%Y%m%d %H:%M:%S')
     console_fmt = logging.Formatter('%(name)s: %(message)s')
