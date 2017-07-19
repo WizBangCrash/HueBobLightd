@@ -24,7 +24,6 @@ It's an early stage implementation, but it works. Feel free to try.
 
 ## Changes
 
-* 17th July 2017: v1.0.2 - Initial GitHub release
 * 22nd July 2017: v1.1.0
   * Refactoring to improve code structure
   * SIGHUP signal support to re-read configuration file
@@ -32,6 +31,7 @@ It's an early stage implementation, but it works. Feel free to try.
   * Support for multiple hue bridges 
   * Optional initial "brightness" parameter added
   * Optional "transitiontime" parameter added
+* 17th July 2017: v1.0.2 - Initial GitHub release
 
 ## Supported Platforms
 Written in Python with the aim to support as many platforms as possible.
@@ -52,7 +52,7 @@ Follow the notes and instructions in the _synology_ directory.
 The configuration file is a bit simpler than the standard boblightd.conf as there
 are less options supported by the hue lights.
 The configuration supports multiple hue bridges for those with _mega_ hue
-light networls :-)
+light networks :-)
 
 ``` javascript
 {
