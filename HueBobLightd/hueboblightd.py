@@ -172,9 +172,9 @@ def main():
     with BoblightDaemon(server, updater) as bld:
         try:
             while True:
-                # Retrieve the light tranition time
-                t_time = conf.get_parameter('transitiontime', 3)
-                updater.transition = t_time
+                # Retrieve the light tranition time & auto off value
+                updater.transition = conf.get_parameter('transitionTime', 3)
+                updater.auto_off_delay = conf.get_parameter('autoOff', 0) * 60
                 # Create lights for all bridges
                 for bridge in conf.get_parameter('bridges'):
                     bridge_addr = (bridge['address'], bridge['username'])
@@ -196,10 +196,11 @@ def main():
                         logger.info('Added light: bridge (%s) id(%s) name(%s)',
                                     bridge_addr[0], light_id, light_name)
 
-                    # Store the light list as data in the server for the requesthandler
-                    bld.server.data = bld.updater.lights
+                    # Store the update object as data in the server for the requesthandler
+                    bld.server.data = bld.updater
                     # Start the updater thread
-                    logger.info('Starting lights update thread')
+                    logger.info('Starting lights update thread: %r',
+                                bridge_addr[0])
                     bld.start_updater()
                     # Start the server thread
                     logger.info('Starting server update thread: %r',

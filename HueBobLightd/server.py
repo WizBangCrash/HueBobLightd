@@ -50,7 +50,7 @@ class BobHueRequestHandler(socketserver.StreamRequestHandler):
         """ Process the incoming request """
         #pylint: disable=R0912
         response = list()
-        lights = self.server.data
+        lights = self.server.data.lights
 
         # First we check the message format
         message_parts = request.split()
@@ -172,14 +172,13 @@ class BobHueRequestHandler(socketserver.StreamRequestHandler):
                     self.logger.info('light %s singlechange', lightid)
         elif cmd == 'sync':
             """
-            Send synchronised signal to HueLights to tell
-            it a request is ready to be read.
-            'allowsync' should be enabled in configuration file.
-            NOTE: In my version I ignore the setting of this option
-                  as I know MrMC always sends a sync.
-            Should be sent after each bulk set.
+            Sent to indicate that the lights should now be updated
+            In my implementation I just tell the LightUpdater object
+            to perform an update an leave it up to that object to figure
+            out how.
             """
             self.logger.debug('sync')
+            self.server.data.update()
         else:
             # If we get here then we do not recognise the command
             self.logger.info('Unrecognised command: %r', message_parts)

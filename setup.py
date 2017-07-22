@@ -57,7 +57,6 @@ setup(
     install_requires=[
         'requests>=2.13.0',
         'jsmin>=2.2.0',
-        'datetime>=4.0.0',
         'validators>=0.10'
     ],
     # List additional groups of dependencies here (e.g. development

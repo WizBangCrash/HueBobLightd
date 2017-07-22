@@ -9,6 +9,7 @@ __author__ = "David Dix"
 __copyright__ = "Copyright 2017, David Dix"
 
 import logging
+from time import time
 from threading import Event
 from HueBobLightd.huelights import HueLight
 
@@ -20,23 +21,17 @@ class LightsUpdater():
     """
     logger = None
 
-    def __init__(self, transition=3):
+    def __init__(self):
         """
         Initialise the updater thread
-            transition: x * 100ms tranition between updates
         """
-        self.event = Event()
+        self.exit_event = Event()
         if type(self).logger is None:
             type(self).logger = logging.getLogger('LightsUpdater')
         self.lights = list()
-        self.transition = transition
-        self.logger.info('Intialised with transition time of %dms',
-                         self.transition * 100)
-
-    # def connect(self):
-    #     """ Connect to the Hue bridge """
-    #     self.logger.debug('Connect called')
-    #     return HueRequest.connect()
+        self.last_synctime = time()
+        self.transition = 2  # Default to 200ms
+        self.auto_off_delay = 300  # Default to 5 mins
 
     #pylint: disable=R0913
     def add(self, address, light_name, light_id, light_scan, light_bri, light_gamut):
@@ -54,9 +49,24 @@ class LightsUpdater():
         light.turn_off()
         del light
 
+    def update(self):
+        """
+        Called to request the object to update the lights
+        In our implementation we just record the time an update is requested
+        as the update_forever method is feeding the bridge as fast as it can
+        """
+        now = time()
+        self.last_synctime = now
+        self.logger.debug('Update request received: %d', self.last_synctime)
+        for light in self.lights:
+            light.turn_on()
+
     def initialise(self):
-        """ Get the update loop to re-initialise the lights """
-        self.logger.debug('Initialise called')
+        """
+        Get the update loop to re-initialise the lights
+        """
+        self.logger.info('Initialise: Transition time: %dms, Auto Off: %dmins',
+                         self.transition * 100, self.auto_off_delay / 60)
         for light in self.lights:
             if light.validate():
                 light.turn_on()
@@ -67,7 +77,7 @@ class LightsUpdater():
     def shutdown(self):
         """ Turn off the light and disconnect from the bridge """
         self.logger.info('Shutdown called')
-        self.event.set()  # Tell the update forever loop to exit
+        self.exit_event.set()  # Tell the update forever loop to exit
         for light in self.lights:
             self.remove(light)
 
@@ -80,8 +90,8 @@ class LightsUpdater():
         # TODO: We need to check all available bridges
         while not self.lights[0].connect():
             self.logger.error('Failed to connect to hue bridge. Retrying...')
-            if self.event.wait(timeout=1):
-                self.event.clear()
+            if self.exit_event.wait(timeout=1):
+                self.exit_event.clear()
                 self.logger.debug('Exiting update_forever: 1')
                 return
         self.logger.info('Connection established to hue bridge')
@@ -104,11 +114,18 @@ class LightsUpdater():
         self.logger.info('Update period: %.1fms, transition time %dms',
                          update_period * 1000, transition_time * 100)
 
-        # Only update if light is in use
-        # Main loop for continually updaing the lights
-        while not self.event.wait(timeout=update_period):
+        # Main loop for continually updating the lights
+        while not self.exit_event.wait(timeout=update_period):
+            # Calsulate turn off flag if enabled
+            if self.auto_off_delay:
+                turn_off = (time() - self.last_synctime) > self.auto_off_delay
+            else:
+                turn_off = False
             for light in lights_inuse:
-                light.update(transition_time=transition_time)
-        self.event.clear()
+                if turn_off:
+                    light.turn_off()
+                else:
+                    light.update(transition_time=transition_time)
+        self.exit_event.clear()
 
         self.logger.debug('Exiting update_forever: 2')

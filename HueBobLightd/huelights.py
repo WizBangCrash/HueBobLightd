@@ -60,6 +60,7 @@ class HueLight():
         self.brightness = brightness
         self.scanarea = (top, bottom, left, right)
         self.in_use = False
+        self.is_on = False
         self.converter = Converter(self._convert_gamut(gamut))
         self.rgb = (0.0, 0.0, 0.0)
         self.xy_new = (0, 0)
@@ -152,30 +153,31 @@ class HueLight():
         return self.in_use
 
     def turn_on(self):
-        """ Turn on the light """
-        self.in_use = True
-        self.xy_new = self.converter.rgb_to_xy(0.1, 0.1, 0.1)
-        state = {
-            'on' : True,
-            'xy' : [*self.xy_new],
-            'bri' : self.brightness,
-            'alert' : 'select'
-        }
-        # Send the update to the light
-        self.logger.debug('Turn on light: id(%s), name(%s)',
-                          self.hue_id, self.name)
-        self._put(state, timeout=1)
+        """ Turn on the light if it is not already on """
+        if not self.is_on:
+            self.is_on = True
+            self.xy_new = self.converter.rgb_to_xy(0.1, 0.1, 0.1)
+            state = {
+                'on' : True,
+                'xy' : [*self.xy_new],
+                'bri' : self.brightness
+            }
+            # Send the update to the light
+            self.logger.debug('Turn on light: id(%s), name(%s)',
+                            self.hue_id, self.name)
+            self._put(state, timeout=1)
 
     def turn_off(self):
-        """ Turn off the light """
-        self.in_use = False
-        state = {
-            'on' : False,
-        }
-        # Send the update to the light
-        self.logger.debug('Turn off light: id(%s), name(%s)',
-                          self.hue_id, self.name)
-        self._put(state)
+        """ Turn off the light if light is on """
+        if self.is_on:
+            self.is_on = False
+            state = {
+                'on' : False,
+            }
+            # Send the update to the light
+            self.logger.debug('Turn off light: id(%s), name(%s)',
+                            self.hue_id, self.name)
+            self._put(state)
 
     def set_color(self, red, green, blue):
         """
