@@ -19,6 +19,11 @@ stop)
   kill $(ps -ef | grep '[h]ueboblightd' | awk '{print $2'})
   printf "[%4s]\n" "done"
   ;;
+restart)
+  printf "%-30s" "Restarting hueboblightd"
+  kill -1 $(ps -ef | grep '[h]ueboblightd' | awk '{print $2'})
+  printf "[%4s]\n" "done"
+  ;;
 debug)
   printf "%-30s" "Starting hueboblightd in debug mode"
   ${EXEC} --debug --config ${CONFIG} --logdir ${LOG_DIR} >&/dev/null &
