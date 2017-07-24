@@ -87,16 +87,19 @@ class BobHueRequestHandler(socketserver.StreamRequestHandler):
                 """
                 Returns the lights declared in server configuration.
                 First line is the number of lights, then each line
-                corresponds to one light and its scanning parameters e.g.
+                corresponds to one light and its scanning parameters.
+                To ope with multiple bridges we combine the name & hue_id
+                to have a unique ame for MrMC e.g.
 
                 lights 1
-                light 1 scan top, bottom, left, right
+                light name:id scan top, bottom, left, right
                 """
                 self.logger.info('lights')
                 response.append('lights {:d}'.format(len(lights)))
                 for light in lights:
                     lightdata = \
-                        'light {0} scan {1} {2} {3} {4}'.format(light.hue_id,
+                        'light {}:{} scan {:d} {:d} {:d} {:d}'.format(light.name,
+                                                                light.hue_id,
                                                                 *light.scanarea)
                     response.append(lightdata)
                     self.logger.debug('Response: %s', lightdata)
@@ -116,7 +119,7 @@ class BobHueRequestHandler(socketserver.StreamRequestHandler):
                 """
                 Commands to control what to do with the lights
                 """
-                lightid = message_parts[2]
+                lightid = tuple(message_parts[2].split(':'))
                 lightcmd = message_parts[3]
                 if lightcmd == 'rgb':
                     """
@@ -129,7 +132,7 @@ class BobHueRequestHandler(socketserver.StreamRequestHandler):
                                       float(message_parts[5]),
                                       float(message_parts[6]))
                     if len(message_parts) == 7:
-                        light = next((x for x in lights if x.hue_id == lightid), None)
+                        light = next((x for x in lights if x.hue_id == lightid[1] and x.name == lightid[0]), None)
                         if light:
                             light.set_color(float(message_parts[4]),  # red
                                             float(message_parts[5]),  # green
@@ -139,11 +142,20 @@ class BobHueRequestHandler(socketserver.StreamRequestHandler):
                     Change the transition speed of one light.
                     Value is between 0.0 and 100.0.
                     100 means immediate changes.
-                    NOTE: Hue lights are not fast, so no point in processing
-                          this command
+                    NOTE: Hue lights are not fast, but I like the idea of
+                          this feature so:
+                            100 = 100ms (transitiontime = 1)
+                            50 = 500ms
+                            1 = 1s (transitiontime = 10)
                     """
-                    self.logger.info('light %s speed: %f', lightid,
-                                     float(message_parts[4]))
+                    speed = int(float(message_parts[4]))
+                    t_time = 10 - int((speed - 1) / 10)
+                    self.logger.info('light %s speed: %d(%3dms)', lightid, speed, t_time * 100)
+                    light = next((x for x in lights if x.hue_id == lightid[1] and x.name == lightid[0]), None)
+                    if light:
+                        light.transition = t_time
+
+
                 elif lightcmd == 'interpolation':
                     """
                     Enable or disable color interpolation between 2 steps.

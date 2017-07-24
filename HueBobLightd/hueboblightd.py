@@ -19,6 +19,7 @@ from HueBobLightd.config import BobHueConfig
 from HueBobLightd.server import BobHueServer
 from HueBobLightd.server import BobHueRequestHandler
 from HueBobLightd.lightupdate import LightsUpdater
+from HueBobLightd.huelights import HueLight
 from pkg_resources import get_distribution
 from pkg_resources import DistributionNotFound, RequirementParseError
 
@@ -48,6 +49,7 @@ class BoblightDaemon():
         self.updater_thread = None
         self.server = server
         self.updater = updater
+        self.lights = list()
 
     def __enter__(self):
         """ Register signal handlers """
@@ -70,6 +72,31 @@ class BoblightDaemon():
         self.logger.info('Caught signal: %r', signum)
         self.signal = signum
         self.event.set()
+
+    def create_lights(self, config):
+        """ Create a list of lights from the configuration file data """
+        # Retrieve the light tranition time
+        transition = config.get_parameter('transitionTime', 3)
+        # Create lights for all bridges
+        for bridge in config.get_parameter('bridges'):
+            bridge_addr = (bridge['address'], bridge['username'])
+            # Create a list of lights on the bridge
+            for light in bridge.get('lights'):
+                new_light = {
+                    'address' : bridge_addr,
+                    'name' : light['name'],
+                    'hue_id' : light['id'],
+                    'brightness' : light.get('brightness', 150),
+                    'gamut' : light.get('gamut', ''),
+                    'scanarea' : (
+                        light['vscan']['top'],
+                        light['vscan']['bottom'],
+                        light['hscan']['left'],
+                        light['hscan']['right']
+                    ),
+                    'transition' : light.get('transitionTime', transition)
+                }
+                self.lights.append(new_light)
 
     def start_server(self):
         """ Create and start the server thread """
@@ -173,39 +200,28 @@ def main():
         try:
             while True:
                 # Retrieve the light tranition time & auto off value
-                updater.transition = conf.get_parameter('transitionTime', 3)
                 updater.auto_off_delay = conf.get_parameter('autoOff', 0) * 60
                 # Create lights for all bridges
-                for bridge in conf.get_parameter('bridges'):
-                    bridge_addr = (bridge['address'], bridge['username'])
-                    # Create a list of lights on the bridge
-                    for light in bridge.get('lights'):
-                        light_name = light['name']
-                        light_id = light['id']
-                        light_scan = (
-                            light['vscan']['top'],
-                            light['vscan']['bottom'],
-                            light['hscan']['left'],
-                            light['hscan']['right']
-                        )
-                        light_gamut = light.get('gamut')
-                        light_bri = light.get('brightness', 150)
-                        bld.updater.add(bridge_addr,
-                                        light_name, light_id,
-                                        light_scan, light_bri, light_gamut)
-                        logger.info('Added light: bridge (%s) id(%s) name(%s)',
-                                    bridge_addr[0], light_id, light_name)
+                bld.lights.clear()
+                bld.create_lights(conf)
+                for light in bld.lights:
+                    try:
+                        hue_light = HueLight(**light)
+                    except ValueError:
+                        logger.exception('Failed to initialise light: %r', light)
+                    else:
+                        bld.updater.add(hue_light)
+                        logger.info('Added light: %r', light)
 
-                    # Store the update object as data in the server for the requesthandler
-                    bld.server.data = bld.updater
-                    # Start the updater thread
-                    logger.info('Starting lights update thread: %r',
-                                bridge_addr[0])
-                    bld.start_updater()
-                    # Start the server thread
-                    logger.info('Starting server update thread: %r',
-                                socket_addr)
-                    bld.start_server()
+                # Store the update object as data in the server for the requesthandler
+                bld.server.data = bld.updater
+                # Start the updater thread
+                logger.info('Starting lights update thread:')
+                bld.start_updater()
+                # Start the server thread
+                logger.info('Starting server update thread: %r',
+                            socket_addr)
+                bld.start_server()
 
                 # Wait until a signal occurs
                 if bld.wait():

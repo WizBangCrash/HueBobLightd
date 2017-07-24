@@ -20,10 +20,15 @@ It's an early stage implementation, but it works. Feel free to try.
 - Multi-threaded
 - Manages hue Bridge HTTP request limitations
 - Ability to set light transition time and default brightness
-- Ability to restart re-read config file without restarting server
+- Ability to re-read config file without restarting server
 
 ## Changes
 
+* 25th July 2017: v1.2.0
+  * Implemented support for "light <name> speed <value>" client command
+  * Fixed bug with scanarea top/bottom, left/right being transposed
+  * Automatic turn on of lights when movie starts
+  * autoOff parameter to turn off lights after predefined period of inactivity
 * 22nd July 2017: v1.1.0
   * Refactoring to improve code structure
   * SIGHUP signal support to re-read configuration file

@@ -86,19 +86,27 @@ def main():
     response = s.recv(1000).decode()
     logger.info('response from server: %r', response)
 
-    message = b'set light 1 rgb 0.000000 1.000000 0.000000\n'
+    message = b'set light TvRight:1 speed 100\n'
     logger.info('sending data: %r', message)
     len_sent = s.send(message)
 
-    message = b'set light 2 rgb 1.000000 0.000000 0.000000\n'
+    message = b'set light TvRight:1 speed 5\n'
     logger.info('sending data: %r', message)
     len_sent = s.send(message)
 
-    message = b'set light 7 rgb 0.000000 0.000000 1.000000\n'
+    message = b'set light TvRight:1 rgb 0.000000 1.000000 0.000000\n'
     logger.info('sending data: %r', message)
     len_sent = s.send(message)
 
-    message = b'set light 7 rgb 0.000000 0.000000 0.000000\n'
+    message = b'set light TvLeft:2 rgb 1.000000 0.000000 0.000000\n'
+    logger.info('sending data: %r', message)
+    len_sent = s.send(message)
+
+    message = b'set light TvStrip:7 rgb 0.000000 0.000000 1.000000\n'
+    logger.info('sending data: %r', message)
+    len_sent = s.send(message)
+
+    message = b'set light TVStrip:7 rgb 0.000000 0.000000 0.000000\n'
     logger.info('sending data: %r', message)
     len_sent = s.send(message)
 

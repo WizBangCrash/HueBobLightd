@@ -19,7 +19,7 @@ from HueBobLightd.colorconvert import Converter, GamutA, GamutB, GamutC
 
 """
 Think about grouping the lights for a client as an autonomous group.
-THis would ensure that all lights update when a "sync" command is recieved.
+This would ensure that all lights update when a "sync" command is recieved.
 It will also ensure that one light is not updating wth a newer RGB value
 than another. Due to a new request coming in while processing the last request.
 You could also use grequests to fire off the group of http requests together.
@@ -32,62 +32,73 @@ light than to ensure all lights are in sync with "old" values.
 """
 
 
+#pylint: disable=R0902
 class HueLight():
     """
     HueLight class
     Attributes:
+        lock: lock for accessing rgb member
         url: url of light (bridge, username portion) NEEDS TO BE in request class
         hue_id: Hue id of light
         name: name of light
+        brightness: Initial brightness of light
         scanarea: (top, bottom, left, right)
         converter: Colour Converter object
         rgb: float tuple(red, green, blue) of new color
         xy_new: int tuple(hue, sat, bri) new color
         xy_previous: int tuple(hue, sat, bri) last color
         in_use: on / off
-        lock: lock for accessing rgb member
     """
     logger = None
 
-    #pylint: disable=R0913
-    def __init__(self, address, name, hue_id, left, right, top, bottom, brightness, gamut=GamutC):
+    def __init__(self, **kwargs):
         if type(self).logger is None:
             type(self).logger = logging.getLogger('HueLight')
         self.lock = Lock()
-        self.url = 'http://{}/api/{}'.format(address[0], address[1])
-        self.hue_id = hue_id
-        self.name = name
-        self.brightness = brightness
-        self.scanarea = (top, bottom, left, right)
         self.in_use = False
         self.is_on = False
-        self.converter = Converter(self._convert_gamut(gamut))
         self.rgb = (0.0, 0.0, 0.0)
         self.xy_new = (0, 0)
         self.xy_previous = (0, 0)
-        self.logger.debug('Light: bridge(%r) id(%s) name(%s) created',
-                          address[0],
-                          self.hue_id,
-                          self.name)
+        self.name = kwargs.get('name')
+        if self.name is None:
+            raise ValueError('Light name has no value')
+        address = kwargs.get('address')
+        if address is None:
+            raise ValueError('Light address has no value')
+        self.url = 'http://{}/api/{}'.format(address[0], address[1])
+        self.hue_id = kwargs.get('hue_id')
+        if self.hue_id is None:
+            raise ValueError('Light id has no value')
+        self.brightness = kwargs.get('brightness', 150)
+        self.converter = Converter(self._get_gamut(kwargs.get('gamut', 'GamutC')))
+        self.scanarea = kwargs.get('scanarea', (0, 100, 0, 100))
+        self.transition = kwargs.get('transition', 3)
+        self.logger.debug('Light: %r', self)
+        # self.logger.debug('Light: name(%s) initialised: bridge(%r) id(%s) area%r, gamut(%s)',
+        #                   self.name, address[0], self.hue_id,
+        #                   self.scanarea, kwargs.get('gamut'))
 
     def __repr__(self):
-        return '{} {}, {}, ({:d}, {:d}, {:d}, {:d}), {:d}'.format(self.url,
-                                                                  self.hue_id,
-                                                                  self.name,
-                                                                  *self.scanarea,
-                                                                  self.brightness)
+        # TODO: Figure out how to just return the ip address
+        # TODO: figure out how to show the gamut
+        return (
+            'HueLight: address({}), name({}), id({}), '
+            'brightness({:d}), transition({:d}), scanarea{!r}, '
+            'gamut({!r})'
+        ).format(self.url, self.name, self.hue_id,
+                 self.brightness, self.transition, self.scanarea,
+                 self.converter)
 
     @staticmethod
-    def _convert_gamut(gamut):
+    def _get_gamut(gamut):
         """ Turn the gamut string into a gamut object """
-        # Default is GamutC
-        if gamut == 'GamutA':
-            result = GamutA
-        elif gamut == 'GamutB':
-            result = GamutB
-        else:
-            result = GamutC
-        return result
+        gamuts = {
+            'gamuta' : GamutA,
+            'gamutb' : GamutB,
+            'gamutc' : GamutC  # Default
+        }
+        return gamuts.get(gamut.lower(), GamutC)
 
     def _put(self, state, timeout=1):
         """
@@ -120,7 +131,7 @@ class HueLight():
         Send a GET Attributes request to the bridge for the specified light
         Return the response as a dcitionary
         """
-        self.logger.debug('Get attributes: id(%s), name(%s)',
+        self.logger.debug('Get attributes: name(%s), id(%s)',
                           self.name, self.hue_id)
         result = None
         url = '{}/lights/{}'.format(self.url, self.hue_id)
@@ -141,6 +152,7 @@ class HueLight():
 
     def connect(self):
         """ Attempt to connect to the bridge and return true if successful """
+        self.logger.info('Connect: %s', self.url)
         try:
             urlopen(self.url, timeout=1)
             return True
@@ -163,8 +175,8 @@ class HueLight():
                 'bri' : self.brightness
             }
             # Send the update to the light
-            self.logger.debug('Turn on light: id(%s), name(%s)',
-                            self.hue_id, self.name)
+            self.logger.debug('Turn on light: name(%s), id(%s)',
+                              self.name, self.hue_id)
             self._put(state, timeout=1)
 
     def turn_off(self):
@@ -175,8 +187,8 @@ class HueLight():
                 'on' : False,
             }
             # Send the update to the light
-            self.logger.debug('Turn off light: id(%s), name(%s)',
-                            self.hue_id, self.name)
+            self.logger.debug('Turn off light: name(%s), id(%s)',
+                              self.name, self.hue_id)
             self._put(state)
 
     def set_color(self, red, green, blue):
@@ -191,14 +203,12 @@ class HueLight():
         """
         with self.lock:
             self.rgb = (red, green, blue)
-        self.logger.debug('Set light(%s) color: %r', self.hue_id, self.rgb)
+        self.logger.debug('Set light(%s) color: %r', self.name, self.rgb)
 
-    def update(self, transition_time=3):
+    def update(self):
         """
         Send an update to the light if required
         We only send and update if the colour has changed
-        We optimise the update to only include the hue commands required i.e.
-            if only the hue has changed then we only send a hue command
         We convert the rgb color here as it is done less often than setting
         the color
         """
@@ -206,16 +216,20 @@ class HueLight():
         # Convert the rbg to hsv
         with self.lock:
             self.xy_new = self.converter.rgb_to_xy(*self.rgb)
+
         if self.xy_new != self.xy_previous:
             # Colour has changed so build a command to send to the bridge
-            self.logger.debug('Light(%s) changed: RGB:%r, XY:%r -> %r',
-                              self.hue_id, self.rgb,
+            self.logger.debug('Light(%s:%s) changed: RGB:%r, XY:%r -> %r',
+                              self.name, self.hue_id, self.rgb,
                               self.xy_previous, self.xy_new)
             state = {
-                'transitiontime' : transition_time
+                'transitiontime' : self.transition,
+                'xy' : [*self.xy_new]
             }
-            if self.xy_new != self.xy_previous:
-                state['xy'] = [*self.xy_new]
+            # If the light has been turned off due to autoOff then turn it on
+            if not self.is_on:
+                state['on'] = True
+                state['bri'] = self.brightness
 
             # Send the update to the light
             # Only update xy_previous if the update request was successful
@@ -223,8 +237,8 @@ class HueLight():
                 self.xy_previous = self.xy_new
         # else:
         #     # Color hasn't changed
-        #     self.logger.debug('Light(%s) color has not changed: '
+        #     self.logger.debug('Light(%s:%s) color has not changed: '
         #                       'RGB:%r, XY:%r == %r',
-        #                       self.hue_id,
+        #                       self.name, self.hue_id,
         #                       self.rgb,
         #                       self.xy_previous, self.xy_new)

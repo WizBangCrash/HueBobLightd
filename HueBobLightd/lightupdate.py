@@ -11,12 +11,11 @@ __copyright__ = "Copyright 2017, David Dix"
 import logging
 from time import time
 from threading import Event
-from HueBobLightd.huelights import HueLight
 
 
 class LightsUpdater():
     """
-    Class for connecting to the Hue bridge and updating the
+    Class for connecting to the hue bridge and updating the
     configured lights as fast as the bridge will allow
     """
     logger = None
@@ -30,21 +29,28 @@ class LightsUpdater():
             type(self).logger = logging.getLogger('LightsUpdater')
         self.lights = list()
         self.last_synctime = time()
-        self.transition = 2  # Default to 200ms
         self.auto_off_delay = 300  # Default to 5 mins
 
-    #pylint: disable=R0913
-    def add(self, address, light_name, light_id, light_scan, light_bri, light_gamut):
+    def add(self, new_light):
         """ Add a light to the list of lights to update """
-        self.logger.debug('Adding light bridge(%s) id(%s), name(%s)',
-                          address[0], light_id, light_name)
-        light = HueLight(address, light_name, light_id, *light_scan, light_bri, light_gamut)
-        self.lights.append(light)
+        # First check that the light does not currently exist in the list
+        matches = [
+            light for light in self.lights
+            if light.name == new_light.name
+            and light.hue_id == new_light.hue_id
+        ]
+        if not matches:
+            self.lights.append(new_light)
+            self.logger.debug('Added light name(%s), id(%s)',
+                              new_light.name, new_light.hue_id)
+        else:
+            self.logger.debug('Light name(%s), id(%s) already exists',
+                              new_light.name, new_light.hue_id)
 
     def remove(self, light):
         """ Remove the specified light from the list """
-        self.logger.debug('Removing light id(%s), name(%s)',
-                          light.hue_id, light.name)
+        self.logger.debug('Removing light name(%s), id(%s)',
+                          light.name, light.hue_id)
         self.lights = [lite for lite in self.lights if lite != light]
         light.turn_off()
         del light
@@ -55,24 +61,20 @@ class LightsUpdater():
         In our implementation we just record the time an update is requested
         as the update_forever method is feeding the bridge as fast as it can
         """
-        now = time()
-        self.last_synctime = now
+        self.last_synctime = time()
         self.logger.debug('Update request received: %d', self.last_synctime)
-        for light in self.lights:
-            light.turn_on()
 
     def initialise(self):
         """
         Get the update loop to re-initialise the lights
         """
-        self.logger.info('Initialise: Transition time: %dms, Auto Off: %dmins',
-                         self.transition * 100, self.auto_off_delay / 60)
+        self.logger.info('Initialise: Auto Off: %dmins', self.auto_off_delay / 60)
         for light in self.lights:
             if light.validate():
                 light.turn_on()
             else:
-                self.logger.debug('Light: id(%s) name(%s) does not exist on bridge',
-                                  light.hue_id, light.name)
+                self.logger.debug('Light: name(%s), id(%s) does not exist on bridge',
+                                  light.name, light.hue_id)
 
     def shutdown(self):
         """ Turn off the light and disconnect from the bridge """
@@ -110,9 +112,7 @@ class LightsUpdater():
         lights_inuse = [light for light in self.lights if light.in_use]
         # self.logger.info('Lights in_use = %d', len(lights_inuse))
         update_period = 0.1 * len(lights_inuse)
-        transition_time = self.transition if self.transition < 4 else 3
-        self.logger.info('Update period: %.1fms, transition time %dms',
-                         update_period * 1000, transition_time * 100)
+        self.logger.info('Update period: %.1fms', update_period * 1000)
 
         # Main loop for continually updating the lights
         while not self.exit_event.wait(timeout=update_period):
@@ -125,7 +125,7 @@ class LightsUpdater():
                 if turn_off:
                     light.turn_off()
                 else:
-                    light.update(transition_time=transition_time)
+                    light.update()
         self.exit_event.clear()
 
         self.logger.debug('Exiting update_forever: 2')
