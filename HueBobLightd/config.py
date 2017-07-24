@@ -191,7 +191,8 @@ class BobHueConfig(ConfigParser):
                         gamut = light.get('gamut')
                         # gamut is optional, so only check if present
                         if gamut:
-                            if not (gamut == 'GamutA' or gamut == 'GamutB' or gamut == 'GamutC'):
+                            gamut = gamut.lower()
+                            if not (gamut == 'gamuta' or gamut == 'gamutb' or gamut == 'gamutc'):
                                 self.logger.error('Incorrect "gamut" parameter in light: %s', light)
                                 result = False
                         vscan = light.get('vscan')
@@ -200,22 +201,38 @@ class BobHueConfig(ConfigParser):
                             self.logger.error('"brightness" parameter must be between 1 & 254. Using default: 150.')
                             self.data['brightness'] = 150
                         if vscan:
-                            if vscan.get('top') is None:
+                            top = vscan.get('top')
+                            if top is None:
                                 self.logger.error('Missing "top" parameter in light: %s', light)
                                 result = False
-                            if vscan.get('bottom') is None:
+                            elif top > 100 or top < 0:
+                                self.logger.error('"top" parameter must be between 1 & 100')
+                                result = False
+                            bottom = vscan.get('bottom')
+                            if bottom is None:
                                 self.logger.error('Missing "bottom" parameter in light: %s', light)
+                                result = False
+                            elif bottom > 100 or bottom < 0:
+                                self.logger.error('"bottom" parameter must be between 1 & 100')
                                 result = False
                         else:
                             self.logger.error('Missing "vscan" parameter in light: %s', light)
                             result = False
                         hscan = light.get('hscan')
                         if hscan:
-                            if hscan.get('left') is None:
+                            left = hscan.get('left')
+                            if left is None:
                                 self.logger.error('Missing "left" parameter in light: %s', light)
                                 result = False
-                            if hscan.get('right') is None:
+                            elif left > 100 or left < 0:
+                                self.logger.error('"left" parameter must be between 1 & 100')
+                                result = False
+                            right = hscan.get('right')
+                            if right is None:
                                 self.logger.error('Missing "right" parameter in light: %s', light)
+                                result = False
+                            elif right > 100 or right < 1:
+                                self.logger.error('"left" parameter must be between 1 & 100')
                                 result = False
                         else:
                             self.logger.error('Missing "hscan" parameter in light: %s', light)
