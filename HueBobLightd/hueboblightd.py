@@ -19,7 +19,7 @@ from HueBobLightd.config import BobHueConfig
 from HueBobLightd.server import BobHueServer
 from HueBobLightd.server import BobHueRequestHandler
 from HueBobLightd.lightupdate import LightsUpdater
-from HueBobLightd.huelights import HueLight
+from HueBobLightd.huelights import HueLight, BridgeAddress
 from pkg_resources import get_distribution
 from pkg_resources import DistributionNotFound, RequirementParseError
 
@@ -39,11 +39,9 @@ class BoblightDaemon():
 
     def __init__(self, server, updater):
         if type(self).logger is None:
-            type(self).logger = logging.getLogger('BoblightDaemon')
+            type(self).logger = logging.getLogger(type(self).__name__)
         self.event = Event()
-        self.sigint_hdlr = None
-        self.sigterm_hdlr = None
-        self.sighup_hdlr = None
+        self.handlers = dict()
         self.signal = None
         self.server_thread = None
         self.updater_thread = None
@@ -53,25 +51,38 @@ class BoblightDaemon():
 
     def __enter__(self):
         """ Register signal handlers """
-        self.sigint_hdlr = signal.signal(signal.SIGINT, self.signal_handler)
-        self.sigterm_hdlr = signal.signal(signal.SIGTERM, self.signal_handler)
+        self.handlers['SIGINT'] = signal.signal(signal.SIGINT, self.signal_handler)
+        self.handlers['SIGTERM'] = signal.signal(signal.SIGTERM, self.signal_handler)
         if platform.system().lower() != 'windows':
-            self.sighup_hdlr = signal.signal(signal.SIGHUP, self.signal_handler)
+            self.handlers['SIGHUP'] = signal.signal(signal.SIGHUP, self.signal_handler)
+            self.handlers['SIGUSR1'] = signal.signal(signal.SIGUSR1, self.signal_handler)
         return self
 
     def __exit__(self, extype, exvalue, extraceback):
         """ Reset signal handlers """
-        signal.signal(signal.SIGINT, self.sigint_hdlr)
-        signal.signal(signal.SIGTERM, self.sigterm_hdlr)
+        signal.signal(signal.SIGINT, self.handlers['SIGINT'])
+        signal.signal(signal.SIGTERM, self.handlers['SIGTERM'])
         if platform.system().lower() != 'windows':
-            signal.signal(signal.SIGHUP, self.sighup_hdlr)
+            signal.signal(signal.SIGHUP, self.handlers['SIGHUP'])
+            signal.signal(signal.SIGHUP, self.handlers['SIGUSR1'])
 
     def signal_handler(self, signum, frame):
         """ Save the signal for the wait method """
         #pylint: disable=W0613
         self.logger.info('Caught signal: %r', signum)
         self.signal = signum
-        self.event.set()
+        if signum == signal.SIGUSR1:
+            """
+            If we get a SIGUSR1 signal then switch the log level
+            in/out of DEBUG mode
+            """
+            # self.logger.info('Log level was: %r', self.logger.getEffectiveLevel())
+            if self.logger.getEffectiveLevel() == logging.DEBUG:
+                logging.getLogger().setLevel(logging.INFO)
+            else:
+                logging.getLogger().setLevel(logging.DEBUG)
+        else:
+            self.event.set()
 
     def create_lights(self, config):
         """ Create a list of lights from the configuration file data """
@@ -79,7 +90,7 @@ class BoblightDaemon():
         transition = config.get_parameter('transitionTime', 3)
         # Create lights for all bridges
         for bridge in config.get_parameter('bridges'):
-            bridge_addr = (bridge['address'], bridge['username'])
+            bridge_addr = BridgeAddress(bridge['address'], bridge['username'])
             # Create a list of lights on the bridge
             for light in bridge.get('lights'):
                 new_light = {
@@ -144,7 +155,7 @@ class BoblightDaemon():
         # Returns true if the signal was a SIGHUP
         return sig == signal.SIGHUP
 
-
+#pylint: disable=R0912
 def main():
     """
     The server needs to process the command arguments, open the logger
@@ -199,8 +210,8 @@ def main():
     with BoblightDaemon(server, updater) as bld:
         try:
             while True:
-                # Retrieve the light tranition time & auto off value
-                updater.auto_off_delay = conf.get_parameter('autoOff', 0) * 60
+                # Retrieve the auto off value and turn into seconds
+                updater.auto_off_delay = conf.get_parameter('autoOff', False) * 60
                 # Create lights for all bridges
                 bld.lights.clear()
                 bld.create_lights(conf)

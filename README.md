@@ -24,6 +24,10 @@ It's an early stage implementation, but it works. Feel free to try.
 
 ## Changes
 
+* 29th July 2017: v1.3.0
+  * Fixed autoOff logic
+  * Standardised naming of lights
+  * SIGUSR1 now toggles logging.DEBUG level (Linux systems)
 * 25th July 2017: v1.2.0
   * Implemented support for "light <name> speed <value>" client command
   * Fixed bug with scanarea top/bottom, left/right being transposed
@@ -71,8 +75,19 @@ light networks :-)
     /// Tranistion time:
     /// Philips hue lights need time to transition from 1 color
     /// to the next. Here you can choose how long in multiples of 100ms
-    /// Valida values: 1 to 10 (default: 3)
-    "transitiontime" : 3,
+    /// Valid values: 1 to 10 (default: 3)
+    ///
+    /// NOTE: If the client sends light <x> speed <y> requests they
+    ///       overwrite this value e.g. MrMC speed slider
+    "transitionTime" : 3,
+
+    /// Auto Off:
+    /// If set the server will turn the lights off after a set period of
+    /// inactivity (default: 10)
+    /// Valid values: 1 to ??? minutes
+    ///
+    /// NOTE: Lights will always turn on automatically
+    "autoOff" : 10,
 
     /// Details of the Hue Bridge
     ///     name: Friendly name used by software for log messages

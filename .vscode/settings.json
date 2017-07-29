@@ -12,5 +12,10 @@
     ],
     "files.associations": {
         "*.conf": "json"
+    },
+    "search.exclude": {
+        "**/build": true,
+        "**/.vscode": true,
+        "*.log*": true
     }
 }

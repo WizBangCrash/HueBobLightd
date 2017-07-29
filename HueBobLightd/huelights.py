@@ -10,7 +10,8 @@ Also includes a class for updating the lights via requests
 __author__ = "David Dix"
 __copyright__ = "Copyright 2017, David Dix"
 
-import logging
+from collections import namedtuple
+from logging import getLogger
 from threading import Lock
 from urllib.request import urlopen, URLError
 import requests
@@ -31,6 +32,7 @@ Decided against this as it is better to send the latest light value to a
 light than to ensure all lights are in sync with "old" values.
 """
 
+BridgeAddress = namedtuple('BridgeAddress', 'address, username')
 
 #pylint: disable=R0902
 class HueLight():
@@ -53,20 +55,20 @@ class HueLight():
 
     def __init__(self, **kwargs):
         if type(self).logger is None:
-            type(self).logger = logging.getLogger('HueLight')
+            type(self).logger = getLogger(type(self).__name__)
         self.lock = Lock()
         self.in_use = False
         self.is_on = False
         self.rgb = (0.0, 0.0, 0.0)
         self.xy_new = (0, 0)
         self.xy_previous = (0, 0)
+        bridge = kwargs.get('address')
+        if bridge is None:
+            raise ValueError('Light address has no value')
+        self.url = 'http://{}/api/{}'.format(bridge.address, bridge.username)
         self.name = kwargs.get('name')
         if self.name is None:
             raise ValueError('Light name has no value')
-        address = kwargs.get('address')
-        if address is None:
-            raise ValueError('Light address has no value')
-        self.url = 'http://{}/api/{}'.format(address[0], address[1])
         self.hue_id = kwargs.get('hue_id')
         if self.hue_id is None:
             raise ValueError('Light id has no value')
@@ -83,7 +85,7 @@ class HueLight():
         # TODO: Figure out how to just return the ip address
         # TODO: figure out how to show the gamut
         return (
-            'HueLight: address({}), name({}), id({}), '
+            'HueLight: bridge({}), name({}), id({}) '
             'brightness({:d}), transition({:d}), scanarea{!r}, '
             'gamut({!r})'
         ).format(self.url, self.name, self.hue_id,
@@ -131,7 +133,7 @@ class HueLight():
         Send a GET Attributes request to the bridge for the specified light
         Return the response as a dcitionary
         """
-        self.logger.debug('Get attributes: name(%s), id(%s)',
+        self.logger.debug('Get light (%s:%s) attributes',
                           self.name, self.hue_id)
         result = None
         url = '{}/lights/{}'.format(self.url, self.hue_id)
@@ -175,8 +177,7 @@ class HueLight():
                 'bri' : self.brightness
             }
             # Send the update to the light
-            self.logger.debug('Turn on light: name(%s), id(%s)',
-                              self.name, self.hue_id)
+            self.logger.info('Turn on light(%s:%s)', self.name, self.hue_id)
             self._put(state, timeout=1)
 
     def turn_off(self):
@@ -187,8 +188,7 @@ class HueLight():
                 'on' : False,
             }
             # Send the update to the light
-            self.logger.debug('Turn off light: name(%s), id(%s)',
-                              self.name, self.hue_id)
+            self.logger.info('Turn off light(%s:%s)', self.name, self.hue_id)
             self._put(state)
 
     def set_color(self, red, green, blue):
@@ -203,7 +203,8 @@ class HueLight():
         """
         with self.lock:
             self.rgb = (red, green, blue)
-        self.logger.debug('Set light(%s) color: %r', self.name, self.rgb)
+        self.logger.debug('Set light(%s:%s) color: %r',
+                          self.name, self.hue_id, self.rgb)
 
     def update(self):
         """
@@ -228,6 +229,7 @@ class HueLight():
             }
             # If the light has been turned off due to autoOff then turn it on
             if not self.is_on:
+                self.is_on = True
                 state['on'] = True
                 state['bri'] = self.brightness
 

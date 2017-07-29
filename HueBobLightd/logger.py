@@ -25,7 +25,7 @@ def init_logger(filename, debug, backups=2):
     logger = logging.getLogger()
     logger.setLevel(loglevel)
     file_fmt = logging.Formatter('%(asctime)s.%(msecs)03d [%(levelname)s] '
-                                 '%(name)s %(funcName)s: %(message)s',
+                                 '%(name)s(%(funcName)s): %(message)s',
                                  datefmt='%Y%m%d %H:%M:%S')
     console_fmt = logging.Formatter('%(name)s: %(message)s')
 
@@ -38,7 +38,7 @@ def init_logger(filename, debug, backups=2):
     fileh = logging.handlers.RotatingFileHandler(filename,
                                                  maxBytes=100*1024*1024,
                                                  backupCount=backups)
-    fileh.setLevel(loglevel)
+    # fileh.setLevel(loglevel)
     fileh.setFormatter(file_fmt)
 
     logger.addHandler(fileh)

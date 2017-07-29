@@ -26,7 +26,7 @@ class LightsUpdater():
         """
         self.exit_event = Event()
         if type(self).logger is None:
-            type(self).logger = logging.getLogger('LightsUpdater')
+            type(self).logger = logging.getLogger(type(self).__name__)
         self.lights = list()
         self.last_synctime = time()
         self.auto_off_delay = 300  # Default to 5 mins
@@ -41,16 +41,15 @@ class LightsUpdater():
         ]
         if not matches:
             self.lights.append(new_light)
-            self.logger.debug('Added light name(%s), id(%s)',
+            self.logger.debug('Added light(%s:%s)',
                               new_light.name, new_light.hue_id)
         else:
-            self.logger.debug('Light name(%s), id(%s) already exists',
+            self.logger.debug('Light(%s:%s) already exists',
                               new_light.name, new_light.hue_id)
 
     def remove(self, light):
         """ Remove the specified light from the list """
-        self.logger.debug('Removing light name(%s), id(%s)',
-                          light.name, light.hue_id)
+        self.logger.debug('Removing light%s:%s)', light.name, light.hue_id)
         self.lights = [lite for lite in self.lights if lite != light]
         light.turn_off()
         del light
@@ -73,7 +72,7 @@ class LightsUpdater():
             if light.validate():
                 light.turn_on()
             else:
-                self.logger.debug('Light: name(%s), id(%s) does not exist on bridge',
+                self.logger.debug('Light(%s:%s) does not exist on bridge',
                                   light.name, light.hue_id)
 
     def shutdown(self):
@@ -116,13 +115,9 @@ class LightsUpdater():
 
         # Main loop for continually updating the lights
         while not self.exit_event.wait(timeout=update_period):
-            # Calsulate turn off flag if enabled
-            if self.auto_off_delay:
-                turn_off = (time() - self.last_synctime) > self.auto_off_delay
-            else:
-                turn_off = False
             for light in lights_inuse:
-                if turn_off:
+                if self.auto_off_delay \
+                        and (time() - self.last_synctime) > self.auto_off_delay:
                     light.turn_off()
                 else:
                     light.update()

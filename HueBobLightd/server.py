@@ -9,12 +9,11 @@ __copyright__ = "Copyright 2017, David Dix"
 
 import logging
 import socketserver
-from HueBobLightd.huelights import HueLight
 
 class BobHueRequestHandler(socketserver.StreamRequestHandler):
     """ My socket request handler """
     def __init__(self, request, client_address, server):
-        self.logger = logging.getLogger('BobHueRequestHandler')
+        self.logger = logging.getLogger(type(self).__name__)
         # self.logger.debug('__init__')
         super().__init__(request, client_address, server)
         return
@@ -97,10 +96,12 @@ class BobHueRequestHandler(socketserver.StreamRequestHandler):
                 self.logger.info('lights')
                 response.append('lights {:d}'.format(len(lights)))
                 for light in lights:
-                    lightdata = \
-                        'light {}:{} scan {:d} {:d} {:d} {:d}'.format(light.name,
-                                                                light.hue_id,
-                                                                *light.scanarea)
+                    lightdata = (
+                        'light {}:{} '
+                        'scan {:d} {:d} {:d} {:d}'.format(light.name,
+                                                          light.hue_id,
+                                                          *light.scanarea)
+                    )
                     response.append(lightdata)
                     self.logger.debug('Response: %s', lightdata)
         elif cmd == 'set':
@@ -150,7 +151,7 @@ class BobHueRequestHandler(socketserver.StreamRequestHandler):
                     """
                     speed = int(float(message_parts[4]))
                     t_time = 10 - int((speed - 1) / 10)
-                    self.logger.info('light %s speed: %d(%3dms)', lightid, speed, t_time * 100)
+                    self.logger.info('light %s speed: %d (%3dms)', lightid, speed, t_time * 100)
                     light = next((x for x in lights if x.hue_id == lightid[1] and x.name == lightid[0]), None)
                     if light:
                         light.transition = t_time
@@ -172,10 +173,10 @@ class BobHueRequestHandler(socketserver.StreamRequestHandler):
                     By default all lights are used.
                     Any color change request for an unused light
                     will be ignored.
+                    NOTE: I never get one of these from MrMC so not implemented
                     """
                     self.logger.info('light %s use: %d', lightid,
                                      int(message_parts[4]))
-                    # TODO: Turn on the light if I'm told to use it
                 elif lightcmd == 'singlechange':
                     """
                     NOTE: I ignore this command as Hue lights will always

@@ -32,7 +32,7 @@ class ConfigParser():
 
     def __init__(self):
         if type(self).logger is None:
-            type(self).logger = logging.getLogger('ConfigParser')
+            type(self).logger = logging.getLogger(type(self).__name__)
         self.cfgfile = None
 
     def __remove_trailing_commas(self, json_like):
@@ -159,6 +159,7 @@ class BobHueConfig(ConfigParser):
         result = True
 
         # Check all the mandatory parameters first
+        #pylint: disable=R1702
         if self.data.get('bridges'):
             for bridge in self.data.get('bridges'):
                 if bridge.get('address'):
