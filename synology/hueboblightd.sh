@@ -21,7 +21,12 @@ stop)
   ;;
 restart)
   printf "%-30s" "Restarting hueboblightd"
-  kill -1 $(ps -ef | grep '[h]ueboblightd' | awk '{print $2'})
+  kill -s HUP $(ps -ef | grep '[h]ueboblightd' | awk '{print $2'})
+  printf "[%4s]\n" "done"
+  ;;
+logging)
+  printf "%-30s" "Change logging level of hueboblightd"
+  kill -s USR1 $(ps -ef | grep '[h]ueboblightd' | awk '{print $2'})
   printf "[%4s]\n" "done"
   ;;
 debug)
@@ -29,7 +34,7 @@ debug)
   ${EXEC} --debug --config ${CONFIG} --logdir ${LOG_DIR} >&/dev/null &
   printf "[%4s]\n" "done"
 *)
-  echo "Usage: $0 {start|stop}"
+  echo "Usage: $0 {start|stop|restart|logging|debug}"
   exit 1
 esac
 
